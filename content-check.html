@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content check</title>
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; margin: 16px; background: #fff; color: #1a1a1a; }
+  #summary { font-size: 1.5rem; font-weight: 700; }
+  .pass { color: #0a6b2d; }
+  .fail { color: #b00020; }
+  li.fail { font-weight: 600; }
+  ol { padding-left: 1.5rem; }
+  details { margin-top: 1rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Then What?! content check</h1>
+  <p>Runs <code>ThenWhat.contentTests</code> from <code>js/tests-content.js</code> against <code>js/content.js</code>. Works from <code>file://</code>; makes no network requests.</p>
+  <p id="summary" role="status">Running...</p>
+  <h2>Failures</h2>
+  <ol id="failures"></ol>
+  <details>
+    <summary>All checks</summary>
+    <ol id="all"></ol>
+  </details>
+</main>
+<script src="js/content.js"></script>
+<script src="js/tests-content.js"></script>
+<script>
+(function () {
+  'use strict';
+  var pass = 0, fail = 0;
+  var all = document.getElementById('all');
+  var failures = document.getElementById('failures');
+  function item(ok, msg) {
+    var li = document.createElement('li');
+    li.className = ok ? 'pass' : 'fail';
+    li.textContent = (ok ? 'PASS ' : 'FAIL ') + msg;
+    return li;
+  }
+  function assert(ok, msg) {
+    if (ok) pass++; else { fail++; failures.appendChild(item(false, msg)); }
+    all.appendChild(item(ok, msg));
+  }
+  try {
+    ThenWhat.contentTests(assert);
+  } catch (e) {
+    assert(false, 'contentTests threw: ' + e.message);
+  }
+  if (!fail) failures.appendChild(item(true, 'none'));
+  var s = document.getElementById('summary');
+  s.className = fail ? 'fail' : 'pass';
+  s.textContent = (fail ? 'FAIL' : 'PASS') + ': ' + pass + ' passed, ' + fail + ' failed';
+  document.title = (fail ? 'FAIL' : 'PASS') + ' - Content check';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en" data-level="sprout" data-card-style="lantern">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<!-- Child-privacy guardrail (decision 2026-10-29): the browser itself blocks every request
+     to anywhere, our own server included, once the page has loaded. Only the game's own
+     files load. Voices play from blob: URLs. Inline styles are allowed because CSS cannot
+     load anything while img/font/connect stay locked. Add font-src 'self' with the font. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src data:; media-src blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:,">
+<title>Then What?!</title>
+<!-- Then What?! — the game page (Phase 3 step D).
+     Plain files, no libraries, no build step, no network requests.
+     Classic scripts (not modules) so the page also opens from file://.
+     Recording needs a secure page: use http://localhost (see web/README.md).
+     The icon sprite below is a copy of web/icons/icons.svg (copied inline so no
+     fetch is needed). Re-copy it when icons.svg changes. -->
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/cards.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<!-- ICONS:START (copy of web/icons/icons.svg; do not edit here) -->
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+<symbol id="ui-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Record</title><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></symbol>
+<symbol id="ui-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Stop</title><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+<symbol id="ui-continue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Continue</title><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="ui-pass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Pass the story</title><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M6.5 15.5C8 9 16 9 17.5 15.5M17.5 15.5l1-3.6M17.5 15.5l-3.5-1.4"/></symbol>
+<symbol id="ui-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Pause</title><path d="M9 5v14M15 5v14"/></symbol>
+<symbol id="ui-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Play</title><path d="M8 5v14l11-7z"/></symbol>
+<symbol id="ui-next-track" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Next</title><path d="M6 6l9 6-9 6zM18 6v12"/></symbol>
+<symbol id="ui-replace" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Replace prompt</title><path d="M20 11A8 8 0 0 0 5.4 6.5M4 3v4h4M4 13a8 8 0 0 0 14.6 4.5M20 21v-4h-4"/></symbol>
+<symbol id="ui-soften" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Soften Twist</title><path d="M20 4C12 4 7 9 7 16v1h1c7 0 12-5 12-13zM4 20l9-9M10 14h4"/></symbol>
+<symbol id="ui-stop-story" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Stop this story</title><path d="M5 5a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 1h12v-3M10 8l4 4M14 8l-4 4"/></symbol>
+<symbol id="ui-tools" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Grown-up tools</title><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18M10 13v2h4v-2"/></symbol>
+<symbol id="ui-listen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Listen</title><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></symbol>
+<symbol id="ui-read-aloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Read aloud</title><path d="M4 9h3l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></symbol>
+<symbol id="ui-read-aloud-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Stop reading</title><path d="M3 9h3l5-4v14l-5-4H3z"/><rect x="15" y="9" width="6" height="6" rx="1"/></symbol>
+<symbol id="ui-delete" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Delete</title><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+<symbol id="ui-big-screen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Big screen</title><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+<symbol id="ui-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Back</title><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+<symbol id="ui-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Close</title><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="ui-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Picked</title><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+<symbol id="ui-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Fewer</title><path d="M5 12h14"/></symbol>
+<symbol id="ui-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>More</title><path d="M5 12h14M12 5v14"/></symbol>
+<symbol id="ui-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Player</title><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="ui-players" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Storytellers</title><circle cx="12" cy="7" r="3"/><circle cx="5" cy="9.5" r="2"/><circle cx="19" cy="9.5" r="2"/><path d="M7 20a5 5 0 0 1 10 0M2 18a3.5 3.5 0 0 1 4.5-3.3M22 18a3.5 3.5 0 0 0-4.5-3.3"/></symbol>
+<symbol id="ui-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Phone</title><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+<symbol id="ui-dice" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Surprise me</title><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 8.5h.01M15.5 15.5h.01M12 12h.01M15.5 8.5h.01M8.5 15.5h.01"/></symbol>
+<symbol id="card-world" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>World</title><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3.8 6 3.8 9s-.8 6-3.8 9M12 3C9 6 8.2 9 8.2 12s.8 6 3.8 9"/></symbol>
+<symbol id="card-quest" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Quest</title><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12h.01"/></symbol>
+<symbol id="card-prompt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Prompt</title><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></symbol>
+<symbol id="card-twist" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Twist</title><path d="M12 12a2 2 0 0 1 4 0a4 4 0 0 1-8 0a6 6 0 0 1 12 0a8 8 0 0 1-16 0"/></symbol>
+<symbol id="card-fate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Fate</title><path d="M3 18h18M7 18a5 5 0 0 1 10 0M12 6v3M5.6 10.6l1.8 1.8M18.4 10.6l-1.8 1.8M8 21h8"/></symbol>
+<symbol id="world-school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>School After the Bell</title><path d="M3 21h18M5 21V11h14v10M3 11l9-6 9 6M10 21v-5h4v5M7.5 14h1M15.5 14h1"/><circle cx="12" cy="9.5" r="1.2"/></symbol>
+<symbol id="world-jungle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Jungle Explorers</title><path d="M12 21c.6-4 .8-8 0-11M12 10C10 7 6 6 3 8M12 10c2-3 6-4 9-2M12 10c-1-3-.5-6 2.5-7.5M12 10c-3 0-6 2-7 6M12 10c3 0 6 2 7 6M7 21h10"/></symbol>
+<symbol id="world-lantern" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Moonlight Market</title><path d="M12 2v2M9 4h6v2H9zM9 6h6c2 2 3 4 3 6s-1 4-3 6H9c-2-2-3-4-3-6s1-4 3-6zM7 9.5h10M7 14.5h10M10 18v2h4v-2M12 20v2"/></symbol>
+<symbol id="where-city" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>City</title><path d="M3 21h18M5 21V9h6v12M11 21V4h8v17M7.5 12h1M7.5 16h1M14 8h2M14 12h2M14 16h2"/></symbol>
+<symbol id="where-jungle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Jungle</title><path d="M12 21c.6-4 .8-8 0-11M12 10C10 7 6 6 3 8M12 10c2-3 6-4 9-2M12 10c-1-3-.5-6 2.5-7.5M12 10c-3 0-6 2-7 6M12 10c3 0 6 2 7 6M7 21h10"/></symbol>
+<symbol id="where-desert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Desert</title><path d="M10 21V6a2 2 0 0 1 4 0v15M10 14H8a2 2 0 0 1-2-2v-2M14 12h2a2 2 0 0 0 2-2V8M4 21h16"/></symbol>
+<symbol id="where-forest" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Forest</title><path d="M12 3l-5 7h3l-4 6h12l-4-6h3zM12 16v5"/></symbol>
+<symbol id="where-space" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Space</title><circle cx="12" cy="12" r="5"/><path d="M7.3 10.2C3.6 11.4 1.6 13.2 2.2 14.6c.8 1.8 6 1.6 11.4-.6s9.2-5.2 8.4-7c-.5-1.2-2.8-1.5-5.8-.9"/></symbol>
+<symbol id="where-under-the-sea" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Under the Sea</title><path d="M3 13c3-5 10-6 14 0-4 6-11 5-14 0zM17 13l4-4v8zM7.5 12h.01M13 3h.01"/><circle cx="9" cy="4.5" r="1.5"/></symbol>
+<symbol id="where-school" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>School</title><path d="M3 21h18M5 21V11h14v10M3 11l9-6 9 6M10 21v-5h4v5M7.5 14h1M15.5 14h1"/><circle cx="12" cy="9.5" r="1.2"/></symbol>
+<symbol id="where-museum" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Museum</title><path d="M3 21h18M4 18h16M12 3l9 6H3zM6 9v9M10 9v9M14 9v9M18 9v9"/></symbol>
+<symbol id="where-circus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Circus</title><path d="M3 20l3-10 6-6 6 6 3 10zM12 4V2l3 1-3 1M10 20l2-6 2 6M6 10h12"/></symbol>
+<symbol id="where-spooky-house" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Spooky House (friendly ghost)</title><path d="M6 20v-9a6 6 0 0 1 12 0v9l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5zM10 10.5h.01M14 10.5h.01M10 14c1 1 3 1 4 0"/></symbol>
+<symbol id="when-long-ago" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Long ago</title><path d="M4 21V7h3v2h3V7h4v2h3V7h3v14zM10 21v-4a2 2 0 0 1 4 0v4M3 21h18"/></symbol>
+<symbol id="when-today" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Today</title><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+<symbol id="when-future" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Future</title><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V5M9.5 12.5h.01M14.5 12.5h.01M10 16h4M3 12v3M21 12v3"/><circle cx="12" cy="4" r="1"/></symbol>
+<symbol id="kind-adventure" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Adventure</title><path d="M2 20l7-11 4 6 2-3 7 8zM9 9V3l4 1.5L9 6"/></symbol>
+<symbol id="kind-mystery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Mystery</title><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="2"/><path d="M11 12l-1 5h4l-1-5"/></symbol>
+<symbol id="kind-funny" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Funny</title><circle cx="12" cy="12" r="9"/><path d="M8.5 9.5h.01M15.5 9.5h.01M7.5 13.5h9a4.5 4.5 0 0 1-9 0z"/></symbol>
+<symbol id="kind-fairy-tale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Fairy Tale</title><path d="M4 20l10-10M17 3l1.2 2.5 2.8.4-2 1.9.5 2.7-2.5-1.3-2.5 1.3.5-2.7-2-1.9 2.8-.4zM6 5v3M4.5 6.5h3"/></symbol>
+<symbol id="kind-superhero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Superhero</title><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6zM12 8.5l1.1 2.2 2.4.3-1.8 1.6.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.6 2.4-.3z"/></symbol>
+<symbol id="kind-space-story" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Space Story</title><path d="M12 2c3 2 5 6 5 10l-2 4H9l-2-4c0-4 2-8 5-10zM7 12l-3 3v3l4-2M17 12l3 3v3l-4-2M10 19l2 3 2-3"/><circle cx="12" cy="9" r="1.8"/></symbol>
+<symbol id="quest-find-lost" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Find something lost</title><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></symbol>
+<symbol id="quest-new-friend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Help a new friend</title><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0M12 3.6c-.6-.9-2-.6-2 .4 0 .9 2 2 2 2s2-1.1 2-2c0-1-1.4-1.3-2-.4z"/></symbol>
+<symbol id="quest-deliver" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Deliver something special</title><path d="M3 7.5L12 3l9 4.5v9L12 21l-9-4.5zM3 7.5l9 4.5 9-4.5M12 12v9M7.5 5.25l9 4.5"/></symbol>
+<symbol id="quest-solve-mystery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Solve a mystery</title><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M8.6 9a2 2 0 1 1 2.8 1.8c-.6.3-.9.7-.9 1.2M10.5 14h.01"/></symbol>
+<symbol id="quest-fix-broken" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Fix something broken</title><path d="M15 3a5 5 0 0 0-4.6 6.9L3 17.3 6.7 21l7.4-7.4A5 5 0 0 0 21 9l-3 3-3-1-1-3z"/></symbol>
+<symbol id="quest-big-party" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Get ready for a big party</title><path d="M12 3a5 6 0 0 1 5 6c0 3.5-2.5 6-5 6s-5-2.5-5-6a5 6 0 0 1 5-6zM11 15l1 1.5 1-1.5M12 16.5c-1 2 1 3 0 5.5M4 4l1 1M20 4l-1 1M3 10h1.5M21 10h-1.5"/></symbol>
+<symbol id="char-inventor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Curious Inventor</title><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.8.5 1.3V16h6v-.8c0-.5.1-1 .5-1.3A6 6 0 0 0 12 3z"/></symbol>
+<symbol id="char-animal-friend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Animal Friend</title><path d="M12 13c-3 0-5.5 2.6-5.5 5 0 1.7 1.4 2.5 2.8 2.2 1-.2 1.8-.6 2.7-.6s1.7.4 2.7.6c1.4.3 2.8-.5 2.8-2.2 0-2.4-2.5-5-5.5-5z"/><circle cx="5.5" cy="10" r="1.8"/><circle cx="9.5" cy="6" r="1.8"/><circle cx="14.5" cy="6" r="1.8"/><circle cx="18.5" cy="10" r="1.8"/></symbol>
+<symbol id="char-brave-beginner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Brave Beginner</title><path d="M12 17v-5M12 12c0-4-3-6-7-6 0 4 3 6 7 6zM12 10c0-3 2-5 6-5 0 3-2 5-6 5zM8 17h8l-1 4H9z"/></symbol>
+<symbol id="char-secret-keeper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Secret Keeper</title><circle cx="8" cy="8" r="4.5"/><path d="M11.2 11.2L20 20M17 17l2-2M14.5 14.5l2-2"/></symbol>
+<symbol id="char-snack-chef" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Snack Chef</title><path d="M21 12a9 9 0 1 1-9-9 3 3 0 0 0 3 3 3 3 0 0 0 3 3 3 3 0 0 0 3 3zM8.5 9.5h.01M14 13.5h.01M9.5 15.5h.01M12 11h.01"/></symbol>
+<symbol id="char-map-maker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Map Maker</title><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM6 15.5c1.5-.5 2-2 3.5-2.5M12 12.5h.01M14.5 8l3 3M17.5 8l-3 3"/></symbol>
+<symbol id="char-shortcut-finder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Shortcut Finder</title><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></symbol>
+<symbol id="char-kind-helper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>The Kind Helper</title><path d="M12 20s-8-5-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15 12 20 12 20z"/></symbol>
+<symbol id="shape-circle" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><title>Circle</title><circle cx="12" cy="12" r="8"/></symbol>
+<symbol id="shape-triangle" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><title>Triangle</title><path d="M12 4l9 16H3z"/></symbol>
+<symbol id="shape-square" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><title>Square</title><rect x="5" y="5" width="14" height="14" rx="1.5"/></symbol>
+<symbol id="shape-diamond" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><title>Diamond</title><path d="M12 3l9 9-9 9-9-9z"/></symbol>
+<symbol id="shape-star" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><title>Star</title><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+<symbol id="shape-heart" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><title>Heart</title><path d="M12 20s-8-5-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15 12 20 12 20z"/></symbol>
+<symbol id="level-sprout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Story Sprout</title><path d="M12 21v-9M12 12c0-4-3-6-7-6 0 4 3 6 7 6zM12 10c0-3 2-5 6-5 0 3-2 5-6 5zM8 21h8"/></symbol>
+<symbol id="level-weaver" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Tale Weaver</title><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></symbol>
+</svg>
+<!-- ICONS:END -->
+<div id="app"></div>
+<!-- The one persistent live region (accessibility pass §2.2). Never removed. -->
+<div id="status" role="status" aria-live="polite" aria-atomic="true" class="vh"></div>
+<script src="js/content.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

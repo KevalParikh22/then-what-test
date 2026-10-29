@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio and storage check</title>
+<!--
+  Then What?! — manual check page for ThenWhat.audio and ThenWhat.storage
+  (tasks 3.8 + 3.9). Owner: Game Audio Engineer. Date: 2026-10-23.
+  Steps: docs/architecture/2026-10-23-audio-storage-notes.md §6.
+  Open over http://localhost (recording needs a secure page).
+  ?auto=1   runs the automatic checks on load (used headless; no mic needed)
+  ?noidb=1  hides IndexedDB before storage.js loads (simulates "unavailable")
+  ?real=1   with ?auto=1, also records 2 s from the real (or fake-device) mic
+  This page makes no network requests. The mic is asked for only when you
+  press Record (or Run the real-mic check).
+-->
+<script>
+  // Must run before storage.js: simulate a browser without IndexedDB.
+  if (/[?&]noidb=1/.test(location.search)) {
+    try { Object.defineProperty(window, "indexedDB", { value: undefined, configurable: true }); } catch (e) {}
+  }
+</script>
+<link rel="stylesheet" href="css/tokens.css">
+<style>
+  body {
+    margin: 0; background: var(--color-bg); color: var(--color-ink);
+    font-family: var(--font-body); font-size: var(--fs-body); line-height: 1.45;
+  }
+  main { max-width: 52rem; margin: 0 auto; padding: var(--space-4); }
+  h1 { font-size: 1.6rem; margin: var(--space-3) 0; }
+  h2 { font-size: 1.25rem; margin: 0 0 var(--space-3); }
+  section {
+    background: var(--color-surface); border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel); padding: var(--space-4); margin: 0 0 var(--space-4);
+  }
+  p, li { max-width: 70ch; }
+  .muted { color: var(--color-ink-muted); }
+  .row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin: var(--space-3) 0; }
+  button {
+    min-height: var(--tap-min); min-width: var(--tap-min); padding: 0 var(--space-4);
+    font: inherit; font-weight: 700; color: var(--color-on-primary); background: var(--color-primary);
+    border: 2px solid transparent; border-radius: var(--radius-btn); cursor: pointer;
+  }
+  button.quiet { background: var(--color-surface-2); color: var(--color-ink); border-color: var(--color-ink-muted); }
+  button[aria-disabled="true"], button:disabled { opacity: 0.6; cursor: not-allowed; }
+  button.rec { background: var(--color-rec); color: var(--color-on-rec); }
+  :focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-outer);
+    outline-offset: var(--focus-width);
+    box-shadow: 0 0 0 var(--focus-width) var(--color-focus-inner);
+  }
+  label { display: inline-flex; gap: var(--space-3); align-items: center; min-height: var(--tap-min); }
+  input[type="checkbox"] { width: 24px; height: 24px; }
+  input[type="number"] { width: 5em; min-height: 40px; font: inherit; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--color-line); vertical-align: top; }
+  code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--color-bg); padding: var(--space-3); border-radius: 8px; }
+  .pass { color: var(--color-success); }
+  .fail { color: var(--color-warning-gentle); font-weight: 700; }
+  [aria-current="true"] { outline: 2px dashed var(--color-ink); }
+  .table-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Audio and storage check</h1>
+  <p class="muted">For the project lead and testers. Nothing on this page leaves the device. Tap Record only when you are ready: that is the only time the microphone is asked for.</p>
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <section aria-labelledby="h-env">
+    <h2 id="h-env">1. This device</h2>
+    <div class="table-wrap"><table><tbody id="env"></tbody></table></div>
+  </section>
+
+  <section aria-labelledby="h-rec">
+    <h2 id="h-rec">2. Record a turn</h2>
+    <div class="row">
+      <label><input type="checkbox" id="cap5"> Use a 5 second cap (instead of 60)</label>
+    </div>
+    <div class="row">
+      <button id="btn-rec" type="button">Record</button>
+      <button id="btn-stop" type="button" class="quiet" aria-disabled="true">Stop</button>
+    </div>
+    <p id="rec-state">Not recording.</p>
+    <p class="muted">To test a disconnect: start recording, then unplug the headset mic or turn off the mic permission in the browser's site settings. The clip so far should be kept.</p>
+    <h3>Recordings saved on this page's test story</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Turn</th><th>Type</th><th>Seconds</th><th>Bytes</th><th>How it ended</th><th>Play</th></tr></thead>
+      <tbody id="clips"></tbody>
+    </table></div>
+  </section>
+
+  <section aria-labelledby="h-play">
+    <h2 id="h-play">3. Play the story</h2>
+    <div class="row">
+      <label>Last <input type="number" id="lastn" value="3" min="1" max="30"> recordings</label>
+    </div>
+    <div class="row">
+      <button id="btn-story" type="button">Play the whole story</button>
+      <button id="btn-pause" type="button" class="quiet">Pause</button>
+      <button id="btn-next" type="button" class="quiet">Next</button>
+      <button id="btn-pstop" type="button" class="quiet">Stop</button>
+    </div>
+    <p id="play-state">Not playing.</p>
+  </section>
+
+  <section aria-labelledby="h-store">
+    <h2 id="h-store">4. Saved stories</h2>
+    <div class="row">
+      <button id="btn-last" type="button" class="quiet">Show last saved story</button>
+      <button id="btn-del" type="button" class="quiet">Delete the test story's voices and names</button>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="sim-quota"> Pretend storage is full (next recording is saved without audio)</label>
+    </div>
+    <div class="row">
+      <a id="link-noidb" href="?noidb=1">Reload as if IndexedDB is unavailable</a>
+      <a href="?">Reload normally</a>
+    </div>
+    <pre id="store-out">Nothing yet.</pre>
+  </section>
+
+  <section aria-labelledby="h-draft">
+    <h2 id="h-draft">5. Draft (resume after reload)</h2>
+    <div class="row">
+      <button id="btn-dsave" type="button" class="quiet">Save a draft now</button>
+      <button id="btn-dold" type="button" class="quiet">Save a draft 13 hours old</button>
+      <button id="btn-dyoung" type="button" class="quiet">Save a draft 11 hours old</button>
+      <button id="btn-dbad" type="button" class="quiet">Save a broken draft</button>
+      <button id="btn-dload" type="button" class="quiet">Load draft</button>
+      <button id="btn-dclear" type="button" class="quiet">Clear draft</button>
+    </div>
+    <pre id="draft-out">Nothing yet.</pre>
+  </section>
+
+  <section aria-labelledby="h-prefs">
+    <h2 id="h-prefs">6. Preferences (never names)</h2>
+    <div class="row">
+      <button id="btn-psave" type="button" class="quiet">Save prefs that include names</button>
+      <button id="btn-pload" type="button" class="quiet">Load prefs</button>
+    </div>
+    <pre id="prefs-out">Nothing yet.</pre>
+  </section>
+
+  <section aria-labelledby="h-speech">
+    <h2 id="h-speech">7. Read-aloud</h2>
+    <p id="speech-state">Checking voices…</p>
+    <div class="row">
+      <button id="btn-say" type="button" class="quiet">Hear a sample prompt</button>
+      <button id="btn-say-weaver" type="button" class="quiet">Hear it at Tale Weaver speed</button>
+      <button id="btn-hush" type="button" class="quiet">Stop reading</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Voice</th><th>Language</th><th>On this device?</th></tr></thead>
+      <tbody id="voices"></tbody>
+    </table></div>
+  </section>
+
+  <section aria-labelledby="h-wake">
+    <h2 id="h-wake">8. Keep the screen awake</h2>
+    <div class="row">
+      <button id="btn-wake" type="button" class="quiet" aria-pressed="false">Keep awake: off</button>
+    </div>
+    <p id="wake-state">Not requested.</p>
+  </section>
+
+  <section aria-labelledby="h-auto">
+    <h2 id="h-auto">9. Automatic checks</h2>
+    <p class="muted">Uses a fake microphone and fake failures, so it needs no permission. It writes and deletes its own test stories.</p>
+    <div class="row">
+      <button id="btn-auto" type="button">Run automatic checks</button>
+      <button id="btn-real" type="button" class="quiet">Run the real-mic check (asks for the mic)</button>
+    </div>
+    <p id="auto-summary"></p>
+    <ol id="auto-out"></ol>
+  </section>
+</main>
+
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script>
+(function () {
+  "use strict";
+  var S = ThenWhat.storage, A = ThenWhat.audio;
+  var $ = function (id) { return document.getElementById(id); };
+  var TEST_SESSION = "check-manual";
+
+  function say(msg) { $("status").textContent = msg; }
+  function el(tag, text) { var e = document.createElement(tag); if (text !== undefined) e.textContent = String(text); return e; }
+  function row(tbody, cells) {
+    var tr = el("tr");
+    cells.forEach(function (c) { var td = el("td"); if (c instanceof Node) td.appendChild(c); else td.textContent = String(c); tr.appendChild(td); });
+    tbody.appendChild(tr);
+    return tr;
+  }
+  function show(id, obj) {
+    $(id).textContent = typeof obj === "string" ? obj : JSON.stringify(obj, function (k, v) {
+      if (typeof Blob !== "undefined" && v instanceof Blob) return "[Blob " + v.size + " bytes, " + (v.type || "no type") + "]";
+      return v;
+    }, 2);
+  }
+  function setDisabled(btn, off) { btn.setAttribute("aria-disabled", off ? "true" : "false"); }
+  function isDisabled(btn) { return btn.getAttribute("aria-disabled") === "true"; }
+
+  // ---------------- 1. Environment ----------------
+  function envRow(k, v) { row($("env"), [k, v]); }
+  envRow("Secure page (needed for the mic)", window.isSecureContext ? "yes" : "no — open over http://localhost or https");
+  envRow("Can record (getUserMedia + MediaRecorder)", A.canRecord() ? "yes" : "no");
+  var chosen = A.pickMimeType();
+  envRow("Chosen recording type (DRD §4.2 order)", chosen || "none listed — the browser's own default will be used");
+  A.MIME_ORDER.forEach(function (t) {
+    var ok = false;
+    try { ok = !!(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)); } catch (e) {}
+    envRow("  supports " + t, ok ? "yes" : "no");
+  });
+  envRow("IndexedDB API present", S.isAvailable() ? "yes" : "no");
+  var dbCell = el("span", "opening…");
+  row($("env"), ["IndexedDB opens", dbCell]);
+  S.openDb().then(function (db) { dbCell.textContent = db ? "yes (database " + db.name + " v" + db.version + ")" : "no — this story can't be saved on this device"; });
+  envRow("speechSynthesis present", "speechSynthesis" in window ? "yes" : "no");
+  envRow("Screen Wake Lock present", navigator.wakeLock ? "yes" : "no");
+  envRow("Browser", navigator.userAgent);
+
+  // ---------------- 2. Recording ----------------
+  var turnNo = 0;
+  var simulateQuota = false;
+  var realPut = IDBObjectStore && IDBObjectStore.prototype.put;
+  $("sim-quota").addEventListener("change", function () { simulateQuota = this.checked; });
+
+  function withQuota(fn) {
+    if (!simulateQuota || !realPut) return fn();
+    IDBObjectStore.prototype.put = function (v) {
+      if (v && v.audioBlob) throw new DOMException("simulated", "QuotaExceededError");
+      return realPut.apply(this, arguments);
+    };
+    return fn().then(function (r) { IDBObjectStore.prototype.put = realPut; return r; });
+  }
+
+  function ensureSession() {
+    return S.saveSession({
+      sessionId: TEST_SESSION, contentVersion: "check", worldId: null, builtWorld: null,
+      level: "sprout", playerCount: 2, useCharacters: false, totalRounds: 3, completedRounds: 0,
+      twistIds: [], softenedTwistIds: [], chosenFateId: null, micBlocked: false,
+      startedAt: new Date().toISOString(), completedAt: null, status: "active"
+    });
+  }
+
+  function saveResult(result) {
+    $("btn-rec").textContent = "Record";
+    $("btn-rec").classList.remove("rec");
+    setDisabled($("btn-stop"), true);
+    if (!result.ok) {
+      $("rec-state").textContent = "Stopped: nothing kept (" + result.reason + "). The turn would continue unrecorded.";
+      say("Recording stopped. Nothing was kept.");
+      return;
+    }
+    turnNo++;
+    var t = {
+      id: TEST_SESSION + "-r1-p" + turnNo, sessionId: TEST_SESSION, round: 1, turnIndex: turnNo,
+      playerIndex: turnNo % 2, nickname: "Tester" + turnNo, characterId: null, promptId: "check",
+      inputMethod: "microphone", durationSeconds: result.durationSeconds, audioBlob: result.blob,
+      mimeType: result.mimeType, audioByteSize: result.blob.size, createdAt: new Date().toISOString()
+    };
+    ensureSession().then(function () { return withQuota(function () { return S.saveTurn(t); }); }).then(function (r) {
+      var note = r.ok ? (r.audioDropped ? "saved WITHOUT audio (storage full)" : "saved") : "not saved (" + r.reason + ")";
+      $("rec-state").textContent = "Stopped (" + result.cause + "): " + result.durationSeconds + " s, " + result.blob.size + " bytes, " + result.mimeType + ". Turn " + note + ".";
+      say("Recording stopped. Turn " + note + ".");
+      refreshClips();
+    });
+  }
+
+  A.onDisconnect(function (result) {
+    $("rec-state").textContent = "Microphone disconnected.";
+    say("Microphone disconnected.");
+    saveResult(result);
+  });
+
+  $("btn-rec").addEventListener("click", function () {
+    if (A.isRecording()) return;
+    var max = $("cap5").checked ? 5 : 60;
+    $("rec-state").textContent = "Asking for the microphone…";
+    A.startRecording({ maxSeconds: max, onAutoStop: saveResult }).then(function (r) {
+      if (!r.ok) {
+        var msg = { unavailable: "Recording isn't available here. Just tell it out loud!",
+          denied: "The microphone is blocked. The story would carry on without recording.",
+          unsupported: "This browser can't record audio.", cancelled: "Recording was cancelled." }[r.reason] || r.reason;
+        $("rec-state").textContent = msg + " (reason: " + r.reason + ")";
+        say(msg);
+        return;
+      }
+      $("btn-rec").textContent = "Recording…";
+      $("btn-rec").classList.add("rec");
+      setDisabled($("btn-stop"), false);
+      $("btn-stop").focus();
+      $("rec-state").textContent = "Recording (" + r.mimeType + "), stops by itself after " + max + " s.";
+      say("Recording.");
+    });
+  });
+  $("btn-stop").addEventListener("click", function () {
+    if (isDisabled(this)) return;
+    A.stopRecording().then(function (r) { if (r.ok || r.reason === "empty") saveResult(Object.assign({ cause: "manual" }, r)); });
+    $("btn-rec").focus();
+  });
+
+  var clipTurns = [];
+  function refreshClips() {
+    S.getStoryTurns(TEST_SESSION).then(function (turns) {
+      clipTurns = turns || [];
+      var tb = $("clips");
+      tb.textContent = "";
+      turnNo = Math.max(turnNo, clipTurns.length ? clipTurns[clipTurns.length - 1].turnIndex : 0);
+      clipTurns.forEach(function (t) {
+        var b = el("button", "Play turn " + t.turnIndex);
+        b.type = "button"; b.className = "quiet";
+        if (!t.audioBlob) setDisabled(b, true);
+        b.addEventListener("click", function () {
+          if (isDisabled(b)) return;
+          A.playOne(t.audioBlob, { onEnd: function (e) { $("play-state").textContent = "Clip ended (" + (e.completed ? "finished" : "stopped") + ")."; } })
+            .then(function (ok) { $("play-state").textContent = ok ? "Playing turn " + t.turnIndex + "." : "This clip could not be played."; });
+        });
+        var tr = row(tb, ["Turn " + t.turnIndex, t.mimeType || "-", t.durationSeconds, t.audioByteSize, t.audioBlob ? "audio kept" : "no audio", b]);
+        tr.id = "clip-" + t.turnIndex;
+      });
+      if (!clipTurns.length) row(tb, ["No recordings yet.", "", "", "", "", ""]);
+    });
+  }
+  refreshClips();
+
+  // ---------------- 3. Playback ----------------
+  $("btn-story").addEventListener("click", function () {
+    var n = Math.max(1, parseInt($("lastn").value, 10) || 3);
+    var items = clipTurns.slice(-n);
+    A.playStory(items, {
+      onItem: function (t, i) {
+        Array.prototype.forEach.call(document.querySelectorAll("#clips tr"), function (r) { r.removeAttribute("aria-current"); });
+        var r = $("clip-" + t.turnIndex); if (r) r.setAttribute("aria-current", "true");
+        $("play-state").textContent = "Playing turn " + t.turnIndex + " (" + (i + 1) + " of " + items.length + ").";
+      },
+      onEnd: function (e) {
+        Array.prototype.forEach.call(document.querySelectorAll("#clips tr"), function (r) { r.removeAttribute("aria-current"); });
+        $("play-state").textContent = e.completed ? "The end of the story." : "Stopped.";
+        $("btn-pause").textContent = "Pause";
+      }
+    }).then(function (ok) { if (!ok) $("play-state").textContent = "Nothing to play (no clips with audio)."; });
+  });
+  $("btn-pause").addEventListener("click", function () {
+    var st = A.getPlaybackState();
+    if (st === "playing") { A.pause(); this.textContent = "Resume"; $("play-state").textContent = "Paused."; }
+    else if (st === "paused") { A.resume(); this.textContent = "Pause"; $("play-state").textContent = "Playing."; }
+  });
+  $("btn-next").addEventListener("click", function () { A.next(); });
+  $("btn-pstop").addEventListener("click", function () { A.stop(); });
+
+  // ---------------- 4. Storage ----------------
+  $("btn-last").addEventListener("click", function () {
+    S.getLastSavedStory().then(function (r) {
+      show("store-out", r ? { sessionId: r.session.sessionId, status: r.session.status, audioCount: r.audioCount,
+        turns: r.turns.map(function (t) { return { turnIndex: t.turnIndex, nickname: t.nickname, audioByteSize: t.audioByteSize, audioBlob: t.audioBlob }; }) }
+        : "No saved story with voices or names on this device.");
+    });
+  });
+  $("btn-del").addEventListener("click", function () {
+    S.deleteStoryAudio(TEST_SESSION).then(function (ok) {
+      return S.getStoryTurns(TEST_SESSION).then(function (turns) {
+        show("store-out", { deleted: ok, turns: (turns || []).map(function (t) { return { turnIndex: t.turnIndex, nickname: t.nickname, audioByteSize: t.audioByteSize, audioBlob: t.audioBlob, mimeType: t.mimeType }; }) });
+        say(ok ? "Voices and names deleted." : "Could not delete.");
+        refreshClips();
+      });
+    });
+  });
+
+  // ---------------- 5. Draft ----------------
+  function rawDraft(hoursOld) {
+    var savedAt = new Date(Date.now() - hoursOld * 3600 * 1000).toISOString();
+    try { localStorage.setItem(S.DRAFT_KEY, JSON.stringify({ state: { sessionId: TEST_SESSION + "-draft", phase: "RELAY_TURN" }, savedAt: savedAt })); return true; }
+    catch (e) { return false; }
+  }
+  function rawOf(key) { try { return localStorage.getItem(key); } catch (e) { return "(localStorage blocked)"; } }
+  $("btn-dsave").addEventListener("click", function () { show("draft-out", "saveDraft -> " + S.saveDraft({ sessionId: TEST_SESSION + "-draft", phase: "RELAY_TURN", secondsLeft: 42 }) + "\nraw: " + rawOf(S.DRAFT_KEY)); });
+  $("btn-dold").addEventListener("click", function () { rawDraft(13); show("draft-out", "Wrote a draft 13 h old. Now press Load draft: it should say null and remove it.\nraw: " + rawOf(S.DRAFT_KEY)); });
+  $("btn-dyoung").addEventListener("click", function () { rawDraft(11); show("draft-out", "Wrote a draft 11 h old. Load draft should return it.\nraw: " + rawOf(S.DRAFT_KEY)); });
+  $("btn-dbad").addEventListener("click", function () { try { localStorage.setItem(S.DRAFT_KEY, "{not json"); } catch (e) {} show("draft-out", "Wrote a broken draft. Load draft should return null and remove it."); });
+  $("btn-dload").addEventListener("click", function () { var d = S.loadDraft(); show("draft-out", "loadDraft -> " + JSON.stringify(d) + "\nraw after: " + rawOf(S.DRAFT_KEY)); });
+  $("btn-dclear").addEventListener("click", function () { show("draft-out", "clearDraft -> " + S.clearDraft() + "\nraw after: " + rawOf(S.DRAFT_KEY)); });
+
+  // ---------------- 6. Prefs ----------------
+  $("btn-psave").addEventListener("click", function () {
+    var ok = S.savePrefs({ level: "weaver", playerCount: 4, useCharacters: true, cardStyle: "sticker", bigScreen: false,
+      nicknames: ["Maya", "Sam"], name: "Maya", playerNames: ["Maya"] });
+    show("prefs-out", "savePrefs (with nicknames, name, playerNames) -> " + ok + "\nstored raw: " + rawOf(S.PREFS_KEY) + "\nNo name should appear above.");
+  });
+  $("btn-pload").addEventListener("click", function () { show("prefs-out", "loadPrefs -> " + JSON.stringify(S.loadPrefs()) + "\nstored raw: " + rawOf(S.PREFS_KEY)); });
+
+  // ---------------- 7. Speech ----------------
+  function refreshVoices() {
+    var tb = $("voices"); tb.textContent = "";
+    var list = A.listVoices();
+    list.forEach(function (v) { row(tb, [v.name + (v.isDefault ? " (default)" : ""), v.lang, v.localService ? "yes" : "no — network voice, never used"]); });
+    if (!list.length) row(tb, ["No voices reported.", "", ""]);
+  }
+  A.canSpeak().then(function (ok) {
+    var v = A.getVoiceInfo();
+    $("speech-state").textContent = ok ? "Read-aloud is available with " + v.name + " (" + v.lang + "). The speaker buttons would be shown."
+      : "No on-device voice for this language. The speaker buttons would be hidden.";
+    refreshVoices();
+  });
+  var SAMPLE = "Someone finds a tiny door in the garden wall. What do they do?";
+  $("btn-say").addEventListener("click", function () { if (!A.speak(SAMPLE, { rate: 0.9 })) say("No on-device voice, so nothing was read."); });
+  $("btn-say-weaver").addEventListener("click", function () { if (!A.speak(SAMPLE, { rate: 1.0 })) say("No on-device voice, so nothing was read."); });
+  $("btn-hush").addEventListener("click", function () { A.stopSpeaking(); });
+
+  // ---------------- 8. Wake lock ----------------
+  var wakeOn = false;
+  function wakeText() { $("wake-state").textContent = A.isKeptAwake() ? "The screen is being kept awake." : (wakeOn ? "Asked, but no lock is held (unsupported, refused, or tab hidden)." : "Not requested."); }
+  $("btn-wake").addEventListener("click", function () {
+    wakeOn = !wakeOn;
+    this.setAttribute("aria-pressed", String(wakeOn));
+    this.textContent = "Keep awake: " + (wakeOn ? "on" : "off");
+    A.keepAwake(wakeOn).then(wakeText);
+  });
+  document.addEventListener("visibilitychange", function () { setTimeout(wakeText, 500); });
+
+  // =====================================================================
+  // 9. Automatic checks
+  // =====================================================================
+  var results = [];
+  function record(name, ok, detail) {
+    results.push({ name: name, ok: !!ok, detail: detail });
+    var li = el("li");
+    li.className = ok ? "pass" : "fail";
+    li.textContent = (ok ? "PASS " : "FAIL ") + name + (detail !== undefined && !ok ? " — got " + JSON.stringify(detail) : "");
+    $("auto-out").appendChild(li);
+  }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  // Runs fn(); fails the check if the returned promise rejects or the call throws.
+  function resolves(name, fn) {
+    var p;
+    try { p = Promise.resolve(fn()); } catch (e) { record(name + " (threw)", false, String(e)); return Promise.resolve(undefined); }
+    return p.then(function (v) { return v; }, function (e) { record(name + " (rejected)", false, String(e)); return undefined; });
+  }
+
+  function tinyWav(ms) {
+    var rate = 8000, n = Math.round(rate * ms / 1000), buf = new ArrayBuffer(44 + n * 2), d = new DataView(buf);
+    function str(o, s) { for (var i = 0; i < s.length; i++) d.setUint8(o + i, s.charCodeAt(i)); }
+    str(0, "RIFF"); d.setUint32(4, 36 + n * 2, true); str(8, "WAVE"); str(12, "fmt ");
+    d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, rate, true);
+    d.setUint32(28, rate * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); str(36, "data"); d.setUint32(40, n * 2, true);
+    for (var i = 0; i < n; i++) d.setInt16(44 + i * 2, Math.round(Math.sin(i / 8) * 3000), true);
+    return new Blob([buf], { type: "audio/wav" });
+  }
+
+  function sessionRec(id, startedAt, status) {
+    return { sessionId: id, contentVersion: "check", worldId: "w-test", builtWorld: null, level: "weaver",
+      playerCount: 6, useCharacters: true, totalRounds: 5, completedRounds: 5, twistIds: ["t1"], softenedTwistIds: [],
+      chosenFateId: "f1", micBlocked: false, startedAt: startedAt, completedAt: null, status: status || "completed" };
+  }
+  function turnRec(sid, i, blob) {
+    return { id: sid + "-r" + (Math.floor((i - 1) / 6) + 1) + "-p" + ((i - 1) % 6), sessionId: sid,
+      round: Math.floor((i - 1) / 6) + 1, turnIndex: i, playerIndex: (i - 1) % 6, nickname: "Kid" + i,
+      characterId: null, promptId: "p" + i, inputMethod: blob ? "microphone" : "verbal-unrecorded",
+      durationSeconds: blob ? 1 : 0, audioBlob: blob || null, mimeType: blob ? blob.type : null,
+      audioByteSize: blob ? blob.size : 0, createdAt: new Date().toISOString() };
+  }
+
+  // ---- Setup's Delete clears every saved story (decision 2026-10-28) ----
+  // Runs only on a device with no saved stories, so it never wipes a family's real recordings.
+  function deleteAllChecks() {
+    return S.openDb().then(function () { return S.getLastSavedStory(); }).then(function (before) {
+      if (before) { record("delete all: skipped (real saved stories on this device)", true); return; }
+      var a = "check-all-a-" + Date.now(), b = "check-all-b-" + Date.now();
+      var blob = new Blob([new Uint8Array(64)], { type: "audio/webm" });
+      return Promise.all([S.saveSession(sessionRec(a, "2998-01-01T00:00:00.000Z")), S.saveSession(sessionRec(b, "2998-01-02T00:00:00.000Z")),
+        S.saveTurn(turnRec(a, 1, blob)), S.saveTurn(turnRec(b, 1, blob)), S.saveTurn(turnRec(b, 2, null))]).then(function () {
+        return S.getLastSavedStory();
+      }).then(function (last) {
+        record("delete all: getLastSavedStory counts 2 saved stories", last && last.savedCount === 2, last && last.savedCount);
+        return resolves("deleteAllSavedAudio", function () { return S.deleteAllSavedAudio(); });
+      }).then(function (ok) {
+        record("deleteAllSavedAudio resolves true", ok === true, ok);
+        return Promise.all([S.getStoryTurns(a), S.getStoryTurns(b), S.getLastSavedStory()]);
+      }).then(function (r) {
+        var turns = r[0].concat(r[1]);
+        record("delete all: every story's audio and names cleared", turns.length === 3 &&
+          turns.every(function (t) { return t.audioBlob === null && t.audioByteSize === 0 && t.nickname === null; }));
+        record("delete all: no saved story left", r[2] === null, r[2] && r[2].session.sessionId);
+      });
+    });
+  }
+
+  // ---- storage, IndexedDB available ----
+  function storageChecks() {
+    var sid = "check-auto-" + Date.now();
+    var future = "2999-01-01T00:00:00.000Z";   // newest, so getLastSavedStory must pick it
+    return resolves("openDb", function () { return S.openDb(); }).then(function (db) {
+      record("openDb resolves a database", !!db);
+      return resolves("saveSession", function () { return S.saveSession(sessionRec(sid, future)); });
+    }).then(function (ok) {
+      record("saveSession resolves true", ok === true, ok);
+      var jobs = [];
+      for (var i = 30; i >= 1; i--) {   // written out of order on purpose
+        (function (i) {
+          var blob = i % 3 === 0 ? null : new Blob([new Uint8Array(100 + i)], { type: "audio/webm" });
+          jobs.push(resolves("saveTurn " + i, function () { return S.saveTurn(turnRec(sid, i, blob)); }));
+        })(i);
+      }
+      return Promise.all(jobs);
+    }).then(function (rs) {
+      record("30 saveTurn calls resolve {ok:true}", rs.every(function (r) { return r && r.ok && !r.audioDropped; }), rs.filter(function (r) { return !r || !r.ok; }));
+      return resolves("getStoryTurns", function () { return S.getStoryTurns(sid); });
+    }).then(function (turns) {
+      record("getStoryTurns returns 30 turns", turns && turns.length === 30, turns && turns.length);
+      record("turns come back in turnIndex order", turns && turns.every(function (t, i) { return t.turnIndex === i + 1; }));
+      var sizesOk = turns && turns.every(function (t) {
+        return t.turnIndex % 3 === 0 ? t.audioBlob === null : (t.audioBlob instanceof Blob && t.audioBlob.size === 100 + t.turnIndex);
+      });
+      record("audio Blobs read back with the right sizes", sizesOk);
+      return resolves("getLastSavedStory", function () { return S.getLastSavedStory(); });
+    }).then(function (last) {
+      record("getLastSavedStory returns the newest story", last && last.session.sessionId === sid, last && last.session.sessionId);
+      record("getLastSavedStory counts 20 clips", last && last.audioCount === 20, last && last.audioCount);
+      return resolves("deleteStoryAudio", function () { return S.deleteStoryAudio(sid); });
+    }).then(function (ok) {
+      record("deleteStoryAudio resolves true", ok === true, ok);
+      return S.getStoryTurns(sid);
+    }).then(function (turns) {
+      record("after delete: every audioBlob null, size 0, mimeType null", turns.every(function (t) { return t.audioBlob === null && t.audioByteSize === 0 && t.mimeType === null; }));
+      record("after delete: every nickname null", turns.every(function (t) { return t.nickname === null; }));
+      record("after delete: the rest of each turn is kept", turns.length === 30 && turns.every(function (t) { return t.promptId === "p" + t.turnIndex; }));
+      return S.getLastSavedStory();
+    }).then(function (last) {
+      record("after delete: no longer the last saved story", !last || last.session.sessionId !== sid, last && last.session.sessionId);
+      // ---- quota: put throws QuotaExceededError when a Blob is present
+      var put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (v) {
+        if (v && v.audioBlob) throw new DOMException("simulated", "QuotaExceededError");
+        return put.apply(this, arguments);
+      };
+      var t = turnRec(sid, 31, new Blob([new Uint8Array(50)], { type: "audio/webm" }));
+      return resolves("saveTurn under quota", function () { return S.saveTurn(t); }).then(function (r) {
+        IDBObjectStore.prototype.put = put;
+        record("quota full: saveTurn resolves {ok:true, audioDropped:true}", r && r.ok === true && r.audioDropped === true, r);
+        return S.getStoryTurns(sid);
+      });
+    }).then(function (turns) {
+      var t31 = turns.filter(function (t) { return t.turnIndex === 31; })[0];
+      record("quota full: the turn is saved without audio", t31 && t31.audioBlob === null && t31.audioByteSize === 0 && t31.promptId === "p31", t31);
+      // ---- quota reported at transaction level (abort with tx.error)
+      var put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (v) {
+        var req = put.apply(this, arguments);
+        if (v && v.audioBlob) { var tx = this.transaction; try { tx.abort(); } catch (e) {} }
+        return req;
+      };
+      // An abort without an error name is NOT quota, so expect {ok:false}.
+      return resolves("saveTurn aborted", function () { return S.saveTurn(turnRec(sid, 32, new Blob([new Uint8Array(5)]))); }).then(function (r) {
+        IDBObjectStore.prototype.put = put;
+        record("aborted transaction: saveTurn resolves {ok:false}", r && r.ok === false, r);
+      });
+    }).then(function () {
+      // ---- old WebKit: Blob not cloneable -> stored as ArrayBuffer, read back as Blob
+      var put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (v) {
+        if (v && v.audioBlob instanceof Blob) throw new DOMException("simulated", "DataCloneError");
+        return put.apply(this, arguments);
+      };
+      var t = turnRec(sid, 33, new Blob([new Uint8Array(77)], { type: "audio/mp4" }));
+      return resolves("saveTurn DataCloneError", function () { return S.saveTurn(t); }).then(function (r) {
+        IDBObjectStore.prototype.put = put;
+        record("Blob not storable: saveTurn still resolves {ok:true}", r && r.ok === true && !r.audioDropped, r);
+        return S.getStoryTurns(sid);
+      });
+    }).then(function (turns) {
+      var t = turns.filter(function (x) { return x.turnIndex === 33; })[0];
+      record("Blob not storable: read back as a Blob of the same size and type", t && t.audioBlob instanceof Blob && t.audioBlob.size === 77 && t.audioBlob.type === "audio/mp4", t && t.audioBlob);
+      // ---- bad input never rejects
+      return Promise.all([
+        resolves("saveSession(null)", function () { return S.saveSession(null); }),
+        resolves("saveSession(function)", function () { var r = sessionRec(sid + "-fn", future); r.bad = function () {}; return S.saveSession(r); }),
+        resolves("saveTurn({})", function () { return S.saveTurn({}); }),
+        resolves("getStoryTurns()", function () { return S.getStoryTurns(); }),
+        resolves("deleteStoryAudio(123)", function () { return S.deleteStoryAudio(123); }),
+        resolves("getStoryTurns(unknown)", function () { return S.getStoryTurns("nope-" + Date.now()); })
+      ]);
+    }).then(function (r) {
+      record("bad input: saveSession(null) -> false", r[0] === false, r[0]);
+      record("bad input: non-cloneable session -> false", r[1] === false, r[1]);
+      record("bad input: saveTurn({}) -> {ok:false}", r[2] && r[2].ok === false, r[2]);
+      record("bad input: getStoryTurns() -> []", Array.isArray(r[3]) && r[3].length === 0, r[3]);
+      record("bad input: deleteStoryAudio(123) -> false", r[4] === false, r[4]);
+      record("unknown session: getStoryTurns -> []", Array.isArray(r[5]) && r[5].length === 0, r[5]);
+      // tidy up: delete this run's voices and names, and push it into the past
+      return S.deleteStoryAudio(sid).then(function () { return S.saveSession(sessionRec(sid, "2000-01-01T00:00:00.000Z")); });
+    });
+  }
+
+  // ---- storage, IndexedDB missing (?noidb=1) ----
+  function noIdbChecks() {
+    record("isAvailable() is false", S.isAvailable() === false);
+    return Promise.all([
+      resolves("openDb", function () { return S.openDb(); }),
+      resolves("saveSession", function () { return S.saveSession(sessionRec("x", "2000")); }),
+      resolves("saveTurn", function () { return S.saveTurn(turnRec("x", 1, new Blob(["a"]))); }),
+      resolves("getStoryTurns", function () { return S.getStoryTurns("x"); }),
+      resolves("deleteStoryAudio", function () { return S.deleteStoryAudio("x"); }),
+      resolves("getLastSavedStory", function () { return S.getLastSavedStory(); })
+    ]).then(function (r) {
+      record("no IndexedDB: openDb -> null", r[0] === null, r[0]);
+      record("no IndexedDB: saveSession -> false", r[1] === false, r[1]);
+      record("no IndexedDB: saveTurn -> {ok:false, reason:'unavailable'}", r[2] && r[2].ok === false && r[2].reason === "unavailable", r[2]);
+      record("no IndexedDB: getStoryTurns -> null", r[3] === null, r[3]);
+      record("no IndexedDB: deleteStoryAudio -> false", r[4] === false, r[4]);
+      record("no IndexedDB: getLastSavedStory -> null", r[5] === null, r[5]);
+    });
+  }
+
+  // ---- drafts and prefs (localStorage) ----
+  function localChecks() {
+    var K = S.DRAFT_KEY, P = S.PREFS_KEY;
+    var keepD = rawOf(K), keepP = rawOf(P);
+    var H = 3600 * 1000;
+    function put(key, v) { localStorage.setItem(key, v); }
+    function draftAt(msAgo, sid) { put(K, JSON.stringify({ state: { sessionId: sid || "d1", n: 1 }, savedAt: new Date(Date.now() - msAgo).toISOString() })); }
+
+    record("saveDraft(state) -> true", S.saveDraft({ sessionId: "d1", phase: "RELAY_TURN", secondsLeft: 30 }) === true);
+    var d = S.loadDraft();
+    record("loadDraft returns {state, savedAt}", d && d.state.secondsLeft === 30 && typeof d.savedAt === "string" && !isNaN(Date.parse(d.savedAt)), d);
+    draftAt(11 * H); record("draft 11 h old is returned", !!S.loadDraft());
+    draftAt(12 * H - 60000); record("draft 11 h 59 min old is returned", !!S.loadDraft());
+    draftAt(12 * H + 60000); record("draft 12 h 1 min old -> null", S.loadDraft() === null);
+    record("expired draft is removed", rawOf(K) === null, rawOf(K));
+    draftAt(-60 * 60000); record("draft from 1 h in the future -> null", S.loadDraft() === null);
+    put(K, "{not json"); record("unparsable draft -> null", S.loadDraft() === null);
+    record("unparsable draft is removed", rawOf(K) === null);
+    put(K, JSON.stringify({ state: null, savedAt: new Date().toISOString() })); record("draft without state -> null", S.loadDraft() === null);
+    put(K, JSON.stringify({ state: {}, savedAt: "yesterday" })); record("draft with a bad savedAt -> null", S.loadDraft() === null);
+    var circ = {}; circ.self = circ;
+    record("saveDraft(circular) -> false, no throw", S.saveDraft(circ) === false);
+    record("saveDraft(null) -> false", S.saveDraft(null) === false);
+    record("clearDraft -> true and removes it", S.saveDraft({ a: 1 }) && S.clearDraft() === true && rawOf(K) === null);
+
+    localStorage.removeItem(P);
+    record("loadPrefs with nothing stored -> null", S.loadPrefs() === null);
+    S.savePrefs({ level: "weaver", playerCount: 4, useCharacters: true, cardStyle: "sticker", bigScreen: true,
+      nicknames: ["Maya"], name: "Maya", players: [{ nickname: "Sam" }] });
+    var raw = rawOf(P);
+    record("savePrefs stores no names", raw.indexOf("Maya") < 0 && raw.indexOf("Sam") < 0 && raw.indexOf("nick") < 0, raw);
+    var p = S.loadPrefs();
+    record("loadPrefs returns exactly the five allowed keys", JSON.stringify(Object.keys(p).sort()) === JSON.stringify(["bigScreen", "cardStyle", "level", "playerCount", "useCharacters"]), p);
+    S.savePrefs({ playerCount: 9, level: "storm", cardStyle: "neon" });
+    p = S.loadPrefs();
+    record("savePrefs ignores out-of-range values", p.playerCount === 4 && p.level === "weaver" && p.cardStyle === "sticker", p);
+    S.savePrefs({ playerCount: 2 });
+    record("savePrefs merges one key", S.loadPrefs().playerCount === 2 && S.loadPrefs().level === "weaver");
+    put(P, JSON.stringify({ level: "sprout", nicknames: ["Maya", "Sam"], name: "Zed" }));
+    p = S.loadPrefs();
+    record("loadPrefs strips names someone else stored", JSON.stringify(p) === JSON.stringify({ level: "sprout" }), p);
+    record("…and rewrites storage without them", rawOf(P).indexOf("Maya") < 0 && rawOf(P).indexOf("Zed") < 0, rawOf(P));
+    put(P, "[1,2]"); record("loadPrefs with an array -> null", S.loadPrefs() === null);
+    put(P, "{oops"); record("loadPrefs unparsable -> null", S.loadPrefs() === null);
+
+    // localStorage that throws (blocked site data, some private modes)
+    var gi = Storage.prototype.getItem, si = Storage.prototype.setItem, ri = Storage.prototype.removeItem;
+    function boom() { throw new DOMException("blocked", "SecurityError"); }
+    Storage.prototype.getItem = boom; Storage.prototype.setItem = boom; Storage.prototype.removeItem = boom;
+    var threw = false, out = [];
+    try { out = [S.saveDraft({ a: 1 }), S.loadDraft(), S.clearDraft(), S.loadPrefs(), S.savePrefs({ level: "sprout" })]; } catch (e) { threw = String(e); }
+    Storage.prototype.getItem = gi; Storage.prototype.setItem = si; Storage.prototype.removeItem = ri;
+    record("localStorage throwing: no function throws", threw === false, threw);
+    record("localStorage throwing: false/null results", JSON.stringify(out) === JSON.stringify([false, null, false, null, false]), out);
+    // localStorage full
+    Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError"); };
+    var full = S.saveDraft({ a: 1 });
+    Storage.prototype.setItem = si;
+    record("localStorage full: saveDraft -> false", full === false);
+
+    // restore whatever the tester had
+    if (keepD === null) localStorage.removeItem(K); else put(K, keepD);
+    if (keepP === null) localStorage.removeItem(P); else put(P, keepP);
+
+    // expired draft marks its session abandoned
+    if (!S.isAvailable()) return Promise.resolve();
+    var sid = "check-abandon-" + Date.now();
+    return S.saveSession(sessionRec(sid, "2000-01-01T00:00:00.000Z", "active")).then(function () {
+      draftAt(13 * H, sid);
+      S.loadDraft();
+      if (keepD === null) localStorage.removeItem(K); else put(K, keepD);
+      return wait(300);
+    }).then(function () { return S.getSession(sid); }).then(function (s) {
+      record("expired draft: its session is marked abandoned", s && s.status === "abandoned", s && s.status);
+    });
+  }
+
+  // ---- audio with a fake microphone ----
+  function FakeTrack() { this.kind = "audio"; this.readyState = "live"; this.stopped = false; this.onended = null; }
+  FakeTrack.prototype.stop = function () { this.stopped = true; this.readyState = "ended"; };
+  function FakeStream() { this.tracks = [new FakeTrack()]; }
+  FakeStream.prototype.getTracks = function () { return this.tracks.slice(); };
+  FakeStream.prototype.getAudioTracks = function () { return this.tracks.slice(); };
+
+  function makeFakeRecorder(supported, opts) {
+    opts = opts || {};
+    function FakeRecorder(stream, o) {
+      if (opts.throwAlways) throw new DOMException("no", "NotSupportedError");
+      if (o && o.mimeType && supported.indexOf(o.mimeType) < 0) throw new DOMException("no", "NotSupportedError");
+      this.stream = stream; this.mimeType = (o && o.mimeType) || opts.defaultType || ""; this.options = o;
+      this.state = "inactive"; this.ondataavailable = null; this.onstop = null; this.onerror = null;
+      FakeRecorder.last = this;
+    }
+    FakeRecorder.isTypeSupported = function (t) { return supported.indexOf(t) >= 0; };
+    FakeRecorder.prototype.start = function (slice) {
+      var self = this; this.state = "recording"; this.slice = slice;
+      this.iv = setInterval(function () { self.emit(); }, 50);   // fast "seconds"
+    };
+    FakeRecorder.prototype.emit = function () {
+      if (this.ondataavailable && !opts.silent) this.ondataavailable({ data: new Blob(["0123456789"], { type: this.mimeType }) });
+    };
+    FakeRecorder.prototype.stop = function () {
+      var self = this; if (this.state === "inactive") return;
+      clearInterval(this.iv); this.state = "inactive";
+      setTimeout(function () { self.emit(); if (self.onstop) self.onstop({}); }, 10);
+    };
+    return FakeRecorder;
+  }
+
+  function withFakes(gum, Recorder, fn) {
+    var had = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
+    var realMR = window.MediaRecorder;
+    var streams = [];
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: gum === null ? undefined : {
+      getUserMedia: function (c) { return gum(c, streams); } } });
+    window.MediaRecorder = Recorder;
+    function restore() {
+      if (had) Object.defineProperty(navigator, "mediaDevices", had); else delete navigator.mediaDevices;
+      window.MediaRecorder = realMR;
+    }
+    return Promise.resolve().then(function () { return fn(streams); }).then(function (v) { restore(); return v; }, function (e) { restore(); throw e; });
+  }
+  function grant(delay) { return function (c, streams) { var s = new FakeStream(); streams.push(s); return new Promise(function (r) { setTimeout(function () { r(s); }, delay || 0); }); }; }
+  function refuse(name) { return function () { return Promise.reject(new DOMException("x", name)); }; }
+  var ALL = A.MIME_ORDER.slice();
+
+  function audioChecks() {
+    var chain = Promise.resolve();
+    function step(fn) { chain = chain.then(fn).catch(function (e) { record("audio check crashed", false, String(e && e.stack || e)); }); }
+
+    step(function () {
+      return withFakes(null, makeFakeRecorder(ALL), function () {
+        record("no mediaDevices: canRecord() false", A.canRecord() === false);
+        return resolves("start without API", function () { return A.startRecording({}); }).then(function (r) {
+          record("no mediaDevices: reason 'unavailable'", r && r.reason === "unavailable", r);
+        });
+      });
+    });
+    step(function () {
+      return withFakes(grant(), undefined, function () {
+        record("no MediaRecorder: canRecord() false", A.canRecord() === false);
+      });
+    });
+    [["NotAllowedError", "denied"], ["SecurityError", "denied"], ["NotFoundError", "unavailable"], ["NotReadableError", "unavailable"], ["AbortError", "unavailable"]].forEach(function (c) {
+      step(function () {
+        return withFakes(refuse(c[0]), makeFakeRecorder(ALL), function () {
+          return resolves("start " + c[0], function () { return A.startRecording({}); }).then(function (r) {
+            record(c[0] + " -> '" + c[1] + "'", r && r.ok === false && r.reason === c[1], r);
+            record(c[0] + ": not left recording", !A.isRecording());
+          });
+        });
+      });
+    });
+    step(function () {
+      return withFakes(grant(), makeFakeRecorder(ALL, { throwAlways: true }), function (streams) {
+        return resolves("start unsupported", function () { return A.startRecording({}); }).then(function (r) {
+          record("MediaRecorder throws for every option -> 'unsupported'", r && r.reason === "unsupported", r);
+          record("unsupported: mic tracks stopped", streams[0] && streams[0].tracks[0].stopped);
+        });
+      });
+    });
+    // MIME order
+    [[ALL, "audio/webm;codecs=opus", "Chrome / Firefox / Edge"],
+     [["audio/mp4", "audio/mp4;codecs=mp4a.40.2"], "audio/mp4;codecs=mp4a.40.2", "Safari"],
+     [["audio/mp4"], "audio/mp4", "Safari, plain mp4 only"],
+     [["audio/ogg;codecs=opus"], "audio/ogg;codecs=opus", "old Firefox"]].forEach(function (c) {
+      step(function () {
+        return withFakes(grant(), makeFakeRecorder(c[0]), function () {
+          record("MIME pick (" + c[2] + ") = " + c[1], A.pickMimeType() === c[1], A.pickMimeType());
+        });
+      });
+    });
+    step(function () {
+      var Rec = makeFakeRecorder([], { defaultType: "audio/x-browser-default" });
+      return withFakes(grant(), Rec, function () {
+        return A.startRecording({}).then(function (r) {
+          record("no listed type: records with the browser default and reports its type", r.ok && r.mimeType === "audio/x-browser-default" && !(Rec.last.options && Rec.last.options.mimeType), r);
+          return A.stopRecording();
+        });
+      });
+    });
+    // happy path: manual stop
+    step(function () {
+      var Rec = makeFakeRecorder(ALL);
+      return withFakes(grant(), Rec, function (streams) {
+        return A.startRecording({ maxSeconds: 60 }).then(function (r) {
+          record("start resolves {ok:true, mimeType}", r.ok === true && r.mimeType === "audio/webm;codecs=opus", r);
+          record("1000 ms timeslice", Rec.last.slice === 1000, Rec.last.slice);
+          record("voice bitrate requested", Rec.last.options && Rec.last.options.audioBitsPerSecond === 48000, Rec.last.options);
+          record("isRecording() true", A.isRecording());
+          return wait(220);
+        }).then(function () { return A.stopRecording(); }).then(function (res) {
+          record("stop resolves {ok, blob, mimeType, durationSeconds, cause:'manual'}", res.ok && res.blob instanceof Blob && res.blob.size > 0 && res.mimeType === "audio/webm;codecs=opus" && res.cause === "manual" && res.durationSeconds > 0.1 && res.durationSeconds < 2, res);
+          record("stop: mic tracks stopped", streams[0].tracks[0].stopped);
+          record("stop: isRecording() false", !A.isRecording());
+          return A.stopRecording();
+        }).then(function (again) {
+          record("second stopRecording -> 'not-recording'", again && again.ok === false && again.reason === "not-recording", again);
+        });
+      });
+    });
+    // auto stop
+    step(function () {
+      return withFakes(grant(), makeFakeRecorder(ALL), function (streams) {
+        var autoResult = null;
+        return A.startRecording({ maxSeconds: 0.3, onAutoStop: function (r) { autoResult = r; } }).then(function () { return wait(700); }).then(function () {
+          record("auto-stop fires onAutoStop with the clip", autoResult && autoResult.ok && autoResult.cause === "auto" && autoResult.blob.size > 0, autoResult);
+          record("auto-stop: duration capped at maxSeconds", autoResult && autoResult.durationSeconds <= 0.3, autoResult && autoResult.durationSeconds);
+          record("auto-stop: mic tracks stopped", streams[0].tracks[0].stopped);
+          return A.stopRecording();
+        }).then(function (late) {
+          record("Stop right after auto-stop returns the same clip once", late && late.ok && late.cause === "auto", late);
+          return A.stopRecording();
+        }).then(function (later) {
+          record("…and then 'not-recording' (no stale clip for the next turn)", later && later.reason === "not-recording", later);
+        });
+      });
+    });
+    // disconnect
+    step(function () {
+      return withFakes(grant(), makeFakeRecorder(ALL), function (streams) {
+        var got = null;
+        var off = A.onDisconnect(function (r) { got = r; });
+        return A.startRecording({}).then(function () { return wait(200); }).then(function () {
+          var tr = streams[0].tracks[0]; tr.readyState = "ended"; if (tr.onended) tr.onended({});
+          return wait(150);
+        }).then(function () {
+          off();
+          record("disconnect: onDisconnect gets the chunks so far", got && got.ok && got.cause === "disconnect" && got.blob.size > 0, got);
+          record("disconnect: not recording any more", !A.isRecording());
+        });
+      });
+    });
+    // disconnect with no chunks
+    step(function () {
+      return withFakes(grant(), makeFakeRecorder(ALL, { silent: true }), function (streams) {
+        var got = null;
+        var off = A.onDisconnect(function (r) { got = r; });
+        return A.startRecording({}).then(function () {
+          var tr = streams[0].tracks[0]; if (tr.onended) tr.onended({});
+          return wait(150);
+        }).then(function () {
+          off();
+          record("disconnect with nothing recorded -> {ok:false, reason:'empty'}", got && got.ok === false && got.reason === "empty", got);
+        });
+      });
+    });
+    // stop while the permission prompt is still open
+    step(function () {
+      return withFakes(grant(200), makeFakeRecorder(ALL), function (streams) {
+        var p = A.startRecording({});
+        return A.stopRecording().then(function (s) {
+          record("Stop/Pause during the permission prompt -> 'not-recording'", s.reason === "not-recording", s);
+          return p;
+        }).then(function (r) {
+          record("…and start resolves 'cancelled'", r.ok === false && r.reason === "cancelled", r);
+          record("…and the mic tracks are stopped", streams[0] && streams[0].tracks[0].stopped);
+          record("…and nothing is recording", !A.isRecording());
+        });
+      });
+    });
+    // recorder whose stop event never arrives
+    step(function () {
+      var Rec = makeFakeRecorder(ALL);
+      Rec.prototype.stop = function () { clearInterval(this.iv); this.state = "inactive"; };
+      return withFakes(grant(), Rec, function (streams) {
+        return A.startRecording({}).then(function () { return wait(120); }).then(function () { return A.stopRecording(); }).then(function (r) {
+          record("no 'stop' event: still resolves with the chunks (after a 3 s guard)", r.ok && r.blob.size > 0, r);
+          record("no 'stop' event: tracks stopped", streams[0].tracks[0].stopped);
+        });
+      });
+    });
+    return chain;
+  }
+
+  function playbackChecks() {
+    var items = [{ audioBlob: tinyWav(250), turnIndex: 1 }, { audioBlob: null, turnIndex: 2 }, { audioBlob: tinyWav(250), turnIndex: 3 }];
+    var seen = [];
+    var made = 0, revoked = 0, cou = URL.createObjectURL, rou = URL.revokeObjectURL;
+    URL.createObjectURL = function () { made++; return cou.apply(URL, arguments); };
+    URL.revokeObjectURL = function () { revoked++; return rou.apply(URL, arguments); };
+    return new Promise(function (resolve) {
+      var guard = setTimeout(function () { resolve({ timeout: true }); }, 5000);
+      A.playStory(items, { onItem: function (it, i) { seen.push(i); }, onEnd: function (e) { clearTimeout(guard); resolve(e); } }).then(function (started) {
+        if (!started) { clearTimeout(guard); resolve({ started: false }); }
+      });
+    }).then(function (end) {
+      if (end && end.started === false) {
+        record("playStory could not start (autoplay blocked without a tap; press the button to retry)", false, end);
+        return;
+      }
+      record("playStory plays only clips with audio, in order", JSON.stringify(seen) === "[0,2]", seen);
+      record("playStory onEnd({completed:true})", end && end.completed === true, end);
+      record("playback idle afterwards", A.getPlaybackState() === "idle");
+      var ended = null;
+      return A.playStory(items, { onEnd: function (e) { ended = e; } }).then(function () {
+        A.stop();
+        record("stop() ends with onEnd({completed:false})", ended && ended.completed === false, ended);
+        var bad = null;
+        return new Promise(function (resolve) {
+          setTimeout(resolve, 3000);
+          A.playStory([{ blob: new Blob(["not audio"], { type: "audio/webm" }) }, { blob: tinyWav(100) }], {
+            onItem: function () {}, onEnd: function (e) { bad = e; resolve(); } });
+        }).then(function () {
+          record("an unplayable clip is skipped and the story still ends", bad && bad.completed === true, bad);
+          URL.createObjectURL = cou; URL.revokeObjectURL = rou;
+          record("every object URL made for playback is revoked (" + made + " made)", made > 0 && made === revoked, [made, revoked]);
+        });
+      });
+    });
+  }
+
+  function speechChecks() {
+    var synth = window.speechSynthesis;
+    if (!synth) { record("speechSynthesis missing: canSpeak resolves false", true); return A.canSpeak().then(function (ok) { record("canSpeak() false without speechSynthesis", ok === false); }); }
+    var realGet = synth.getVoices, realSpeak = synth.speak, spoken = [];
+    var RealU = window.SpeechSynthesisUtterance;
+    window.SpeechSynthesisUtterance = function (t) { this.text = t; };   // accepts fake voice objects
+    function voices(list) { synth.getVoices = function () { return list; }; }
+    synth.speak = function (u) { spoken.push(u); };
+    var net = { name: "Google US English", lang: "en-US", localService: false, voiceURI: "net", "default": true };
+    var fr = { name: "Amelie", lang: "fr-FR", localService: true, voiceURI: "fr" };
+    var us = { name: "Local US", lang: "en-US", localService: true, voiceURI: "us", "default": true };
+    var gb = { name: "Local GB", lang: "en-GB", localService: true, voiceURI: "gb" };
+    var html = document.documentElement, realLang = html.lang;
+    return resolves("canSpeak", function () { return A.canSpeak(); }).then(function () {
+      voices([net]);
+      return A.canSpeak();
+    }).then(function (ok) {
+      record("only network voices: canSpeak() false", ok === false, ok);
+      record("only network voices: speak() returns false and says nothing", A.speak("Hello Maya") === false && spoken.length === 0);
+      voices([net, fr]);
+      return A.canSpeak();
+    }).then(function (ok) {
+      record("only a local voice in another language: canSpeak() false", ok === false, ok);
+      voices([net, us, gb]); html.lang = "en-GB";
+      return A.canSpeak();
+    }).then(function (ok) {
+      record("local voices: canSpeak() true", ok === true);
+      record("prefers the page's exact language (en-GB)", A.getVoiceInfo() && A.getVoiceInfo().voiceURI === "gb", A.getVoiceInfo());
+      A.speak("Passing the story to Maya!");
+      var u = spoken[spoken.length - 1];
+      record("speak() uses the local voice, never the network one", u && u.voice === gb);
+      record("default rate 0.9, pitch 1", u && u.rate === 0.9 && u.pitch === 1, u && [u.rate, u.pitch]);
+      A.speak("Weaver", { rate: 1 });
+      record("rate option (Tale Weaver 1.0)", spoken[spoken.length - 1].rate === 1);
+      record("speak('') returns false", A.speak("   ") === false);
+    }).then(function () {
+      synth.getVoices = realGet; synth.speak = realSpeak; html.lang = realLang;
+      delete synth.getVoices; delete synth.speak; window.SpeechSynthesisUtterance = RealU;
+    }, function (e) {
+      synth.getVoices = realGet; synth.speak = realSpeak; html.lang = realLang;
+      delete synth.getVoices; delete synth.speak; window.SpeechSynthesisUtterance = RealU;
+      throw e;
+    });
+  }
+
+  function wakeChecks() {
+    return resolves("keepAwake(true)", function () { return A.keepAwake(true); }).then(function (r) {
+      record("keepAwake(true) resolves a boolean (" + r + ")", typeof r === "boolean", r);
+      return resolves("keepAwake(false)", function () { return A.keepAwake(false); });
+    }).then(function (r) {
+      record("keepAwake(false) resolves false and releases", r === false && !A.isKeptAwake(), r);
+      var real = navigator.wakeLock;
+      Object.defineProperty(navigator, "wakeLock", { configurable: true, value: undefined });
+      return A.keepAwake(true).then(function (r2) {
+        A.keepAwake(false);
+        delete navigator.wakeLock;   // the real one (on the prototype) is back
+        record("no Wake Lock API: keepAwake(true) resolves false", r2 === false, r2);
+      });
+    });
+  }
+
+  function realMicCheck() {
+    if (!A.canRecord()) { record("real mic: recording API missing", false); return Promise.resolve(); }
+    return A.startRecording({ maxSeconds: 60 }).then(function (r) {
+      record("real mic: start (" + (r.mimeType || r.reason) + ")", r.ok, r);
+      if (!r.ok) return;
+      return wait(2200).then(function () { return A.stopRecording(); }).then(function (res) {
+        record("real mic: 2 s clip has bytes (" + (res.blob ? res.blob.size : 0) + ", " + res.mimeType + ")", res.ok && res.blob.size > 0, res);
+        record("real mic: duration about 2 s (" + res.durationSeconds + ")", res.ok && res.durationSeconds > 1.5 && res.durationSeconds < 3);
+        if (!res.ok) return;
+        var sid = "check-real-" + Date.now();
+        return S.saveTurn(turnRec(sid, 1, res.blob)).then(function (s) {
+          record("real mic: clip saved to IndexedDB", s.ok && !s.audioDropped, s);
+          return S.getStoryTurns(sid);
+        }).then(function (turns) {
+          var b = turns && turns[0] && turns[0].audioBlob;
+          record("real mic: clip read back, same size", b && b.size === res.blob.size);
+          return new Promise(function (resolve) {
+            var t = setTimeout(function () { resolve(null); }, 6000);
+            A.playOne(b, { onEnd: function (e) { clearTimeout(t); resolve(e); } });
+          });
+        }).then(function (e) {
+          record("real mic: clip plays to the end", e && e.completed === true, e);
+          return S.deleteStoryAudio(sid);
+        });
+      });
+    });
+  }
+
+  function runAll(includeReal) {
+    results = [];
+    $("auto-out").textContent = "";
+    $("auto-summary").textContent = "Running…";
+    document.body.removeAttribute("data-auto");
+    var noidb = /[?&]noidb=1/.test(location.search);
+    var p = (noidb ? noIdbChecks() : deleteAllChecks().then(storageChecks))
+      .then(localChecks).then(audioChecks).then(playbackChecks).then(speechChecks).then(wakeChecks);
+    if (includeReal) p = p.then(realMicCheck);
+    return p.catch(function (e) { record("check run crashed", false, String(e && e.stack || e)); }).then(function () {
+      var fails = results.filter(function (r) { return !r.ok; }).length;
+      var text = (results.length - fails) + " passed, " + fails + " failed" + (noidb ? " (IndexedDB hidden)" : "");
+      $("auto-summary").textContent = text;
+      say("Automatic checks done: " + text + ".");
+      document.body.setAttribute("data-auto", fails ? "fail" : "pass");
+      document.body.setAttribute("data-auto-summary", text);
+      refreshClips();
+    });
+  }
+  window.__runChecks = runAll;
+  $("btn-auto").addEventListener("click", function () { runAll(false); });
+  $("btn-real").addEventListener("click", function () { results = []; $("auto-out").textContent = ""; realMicCheck().then(function () {
+    var fails = results.filter(function (r) { return !r.ok; }).length;
+    $("auto-summary").textContent = "Real-mic check: " + (results.length - fails) + " passed, " + fails + " failed";
+  }); });
+  if (/[?&]auto=1/.test(location.search)) runAll(/[?&]real=1/.test(location.search));
+})();
+</script>
+</body>
+</html>

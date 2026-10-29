@@ -1,0 +1,930 @@
+/* ==========================================================================
+   Then What?! — Design tokens v2 (task 2.3)
+   File:    web/css/tokens.css
+   Date:    2026-10-21
+   Owner:   Technical Artist
+   Record:  design/2026-10-21-design-tokens-v2.md (contrast + colour-blind results)
+   Preview: design/2026-10-21-tokens-preview.html
+
+   RULES
+   - Custom properties only. No component styles, no selectors that style
+     elements. app.css (task 3.1) uses these tokens and never hard-codes a
+     colour, size, radius, shadow or duration (architecture note 2026-10-20 §1.5).
+   - Visual direction: C · Campfire Night + B's solid outlined buttons and
+     per-card edge patterns (decision 2026-10-21).
+   - Three theme axes, ONE layout. Level is set on <html> or the app root:
+       data-level="sprout"  Story Sprout, warm campfire (also the default)
+       data-level="weaver"  Tale Weaver, adventure map (teal)
+     The Weaver block overrides only colour, shape (radius), texture and the
+     prompt size. Spacing, tap sizes, motion and layout never change by level.
+     Card style is set on <html> (decision 2026-10-22-card-styles-and-switcher):
+       data-card-style="lantern"      Lantern storybook (also the default)
+       data-card-style="collectible"  Collectible card game
+       data-card-style="sticker"      Toy box sticker book
+     A card style changes only card frames, shapes, art windows and
+     textures (section 4). Components: web/css/cards.css.
+     Big screen: data-display="tv" (section 3).
+   - Print / line art: class="print" on any ancestor, or @media print,
+     turns cards into black-on-white line art (section 6).
+   - Cards stay cream in both themes so the same artwork prints on white paper.
+     Dark "night" colours are screen chrome only and are never printed.
+   - Never colour alone: every player colour has a shape token, every card
+     type has a symbol, a word and an edge pattern (DRD v1.1 §9.2), and
+     every card style adds a per-type SHAPE (section 4).
+   - No emoji anywhere. Icons are ids in web/icons/icons.svg.
+   - No network: no remote fonts, no url() to anything outside web/ (DRD §9.1).
+
+   BREAKPOINTS (custom properties can't be used inside @media, so these are
+   documentation; app.css must use the same numbers)
+   - Phone portrait (PRIMARY, designed first): 360–430px wide; must still work
+     at 320px. Default values below are the phone values.
+   - Tablet / laptop landscape: min-width 768px (designed for 1024×768 and
+     1280×800).
+   - TV landscape (optional, read from ~2–3 m): min-width 1800px and
+     orientation landscape (1920×1080). Many TVs and cast targets report a
+     smaller CSS viewport (e.g. 960×540 at 2× density), so the UI can also
+     opt in with data-display="tv" on <html>.
+   - No horizontal scroll from 320px to 2560px (DRD §6).
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   1. LEVEL-INDEPENDENT TOKENS (base palette, type, size, motion)
+   -------------------------------------------------------------------------- */
+:root {
+  /* ---- 1.1 Base palette: Campfire Night (Story Sprout chrome) ---------- */
+  --night-950: #0E1328;   /* grown-up tools bar */
+  --night-900: #131A33;   /* night sky: page background */
+  --night-800: #1C2448;   /* raised panel: chips, turn track */
+  --night-700: #262F57;   /* quiet button fill (Continue) */
+  --night-500: #46518A;   /* decorative hairlines only (never required) */
+  --lilac-400: #8F97CC;   /* grown-up tool outlines (non-text, 3:1) */
+  --lilac-300: #B9B6D3;   /* muted text, button outlines */
+  --moon-100:  #F6EEDC;   /* moonlight text on night */
+
+  /* ---- 1.2 Base palette: Adventure Map (Tale Weaver chrome) ----------- */
+  --sea-950:   #0A141C;   /* grown-up tools bar */
+  --sea-900:   #0F1B26;   /* map-night background */
+  --sea-800:   #172838;   /* raised panel */
+  --sea-700:   #1F3547;   /* quiet button fill */
+  --sea-500:   #36566B;   /* decorative hairlines only */
+  --mist-400:  #7FA6B0;   /* grown-up tool outlines */
+  --mist-300:  #B9C6CF;   /* muted text, button outlines */
+  --foam-100:  #EAF2EE;   /* text on map-night */
+  --teal-300:  #6CC3B5;   /* Weaver accent: active marker, timer, glow */
+
+  /* ---- 1.3 Base palette: cards and warm accents (shared) -------------- */
+  --cream-50:     #FFF4DE; /* glowing card face (Sprout) */
+  --parchment-50: #F8F1E2; /* map-paper card face (Weaver), still prints light */
+  --ink-900:      #1B1830; /* card ink, text on light fills */
+  --ink-600:      #4D4766; /* muted card text (spark, hints) */
+  --amber-400:    #FFB54A; /* Record button, Sprout accent */
+  --amber-800:    #8A520E; /* Record button hard "lip" shadow */
+  --ember-300:    #FFC98A; /* gentle warning ("Finish your thought") */
+  --mint-300:     #7EE0A1; /* success ("Saved" + icon ui-check) */
+  --rose-400:     #FF6B81; /* recording state (always with the dot and the word) */
+  --white:        #FFFFFF;
+
+  /* ---- 1.4 Card-type colours (catalogue colour system, both levels) ---
+     Bands, tags and chips. Each card type is ALSO told apart by symbol,
+     word and edge pattern (section 1.6), so it survives greyscale print.
+     World is a deeper cobalt and Fate a lighter violet than option C so the
+     two stay apart for protan/deutan viewers (record §4). */
+  --card-world:    #1D4A8F;  --on-card-world:  var(--white);   /* icon card-world  */
+  --card-quest:    #F2B33D;  --on-card-quest:  var(--ink-900); /* icon card-quest  */
+  --card-prompt:   #1B1830;  --on-card-prompt: var(--cream-50);/* icon card-prompt */
+  --card-twist:    #B8402F;  --on-card-twist:  var(--white);   /* icon card-twist  */
+  --card-fate:     #7B55D0;  --on-card-fate:   var(--white);   /* icon card-fate   */
+
+  /* ---- 1.5 Player colours + shape cues (2–6 players) ------------------
+     Chosen by script for colour-blind separation (Machado 2009 simulation,
+     CIEDE2000; see the record). All are light so dark ink sits on them and
+     they stand out ≥ 6:1 on both night backgrounds. The shape is shown next
+     to the colour everywhere (band, turn track, story cover), so colour is
+     never the only cue. The character icon and the name are the main cue.
+     --player-n-shape holds an ICON ID from web/icons/icons.svg (solid
+     shape markers), not a glyph: ui.js reads it and renders
+     <svg class="icon"><use href="#shape-circle"/></svg>. No emoji. */
+  --player-1: #6E9BFF;  --on-player-1: var(--ink-900);  --player-1-shape: "shape-circle";   /* blue circle */
+  --player-2: #F8784E;  --on-player-2: var(--ink-900);  --player-2-shape: "shape-triangle"; /* coral triangle */
+  --player-3: #78EBC0;  --on-player-3: var(--ink-900);  --player-3-shape: "shape-square";   /* mint square */
+  --player-4: #FFE94A;  --on-player-4: var(--ink-900);  --player-4-shape: "shape-diamond";  /* sun diamond */
+  --player-5: #C99AB4;  --on-player-5: var(--ink-900);  --player-5-shape: "shape-star";     /* heather star */
+  --player-6: #E2E6FF;  --on-player-6: var(--ink-900);  --player-6-shape: "shape-heart";    /* cloud heart */
+
+  /* ---- 1.6 Card edge patterns (from B / A). Paint with currentColor:
+     the component sets `color` to the card-type colour, then uses
+     `background: var(--pattern-world)` on the card edge strip. Distinct in
+     greyscale: dots / diagonal stripes / ruled lines / zigzag / checks. */
+  --pattern-world:  radial-gradient(circle, currentColor 0 1.8px, transparent 2.2px) 0 0 / 10px 10px;
+  --pattern-quest:  repeating-linear-gradient(45deg, currentColor 0 3px, transparent 3px 9px);
+  --pattern-prompt: repeating-linear-gradient(0deg, currentColor 0 2px, transparent 2px 8px);
+  --pattern-twist:  linear-gradient(135deg, currentColor 25%, transparent 25%) -6px 0 / 12px 12px,
+                    linear-gradient(225deg, currentColor 25%, transparent 25%) -6px 0 / 12px 12px;
+  --pattern-fate:   repeating-conic-gradient(currentColor 0 25%, transparent 0 50%) 0 0 / 10px 10px;
+  --pattern-edge-width: 10px;   /* width of the patterned strip on a card edge */
+
+  /* ---- 1.7 Typography ---------------------------------------------------
+     Atkinson Hyperlegible everywhere: body, display and card titles. No
+     serif titles in any card style (decision 2026-10-22 §1.4). The font
+     file is not added yet, so the system stack below is what renders today.
+     When the font is added (task 3.1):
+       1. Put the .woff2 files in web/fonts/ (same origin; nothing remote).
+       2. Add an @font-face rule in app.css that points at web/fonts/ with
+          font-display: swap. No URL is written here (DRD §9.1).
+     No emoji font in the stacks: the UI uses the icon sprite, never emoji. */
+  --font-family-atkinson: "Atkinson Hyperlegible", "Atkinson Hyperlegible Next";
+  --font-body:    var(--font-family-atkinson), system-ui, -apple-system,
+                  "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial,
+                  sans-serif;
+  --font-display: var(--font-family-atkinson), system-ui, -apple-system,
+                  "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial,
+                  sans-serif;
+
+  --fw-regular: 400;
+  --fw-medium:  600;
+  --fw-bold:    700;
+  --fw-display: 800;
+
+  --lh-tight:  1.15;  /* prompt, headings */
+  --lh-snug:   1.3;   /* buttons, chips */
+  --lh-body:   1.5;   /* paragraphs */
+  --measure-prompt: 18ch;  /* ≈ 6–8 words per line for Sprout (research §4.2) */
+  --measure-body:   60ch;
+
+  /* Type scale, phone values. Prompts are sentence case, never all caps.
+     All type sizes are in rem (1rem = 16px by default) so the browser's
+     text-size setting scales them (accessibility pass A-14). The px value
+     at default size = rem x 16 (e.g. 3rem = 48px prompt). */
+  --fs-100: 0.875rem;   /* grown-up only: exact seconds, footnotes */
+  --fs-200: 1rem;   /* grown-up tool labels, round counter */
+  --fs-300: 1.125rem;   /* body text on phone */
+  --fs-400: 1.25rem;   /* chips (World, Quest, Twist), body on tablet */
+  --fs-500: 1.5rem;   /* child button labels (Record, Continue) */
+  --fs-600: 1.75rem;   /* "Maya, it's your turn!" on phone */
+  --fs-700: 2.25rem;   /* Fate titles, story cover title */
+
+  /* Semantic sizes (use these in app.css) */
+  --fs-tools:   var(--fs-200);
+  --fs-body:    var(--fs-300);
+  --fs-chip:    var(--fs-300);
+  --fs-btn-kid: var(--fs-500);
+  --fs-turn:    var(--fs-600);
+  --fs-display: var(--fs-700);
+
+  /* Turn Prompt per device and level (decision 2026-10-21 §1.4):
+     phone ≥ 44px, tablet/laptop 52–60px, TV larger; Sprout > Weaver.
+     The level themes pick one via --fs-prompt. */
+  --fs-prompt-sprout: 3rem;
+  --fs-prompt-weaver: 2.75rem;
+
+  /* ---- 1.8 Spacing (4px base) ------------------------------------------ */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-7:  40px;
+  --space-8:  48px;
+  --space-9:  64px;
+  --space-10: 96px;
+  --gutter:   16px;   /* page side padding; phone */
+  --stack:    var(--space-4);   /* default vertical gap between blocks */
+
+  /* ---- 1.9 Touch targets ----------------------------------------------- */
+  --tap-min: 48px;    /* every control, incl. grown-up tools (DRD §1.4) */
+  --tap-kid: 96px;    /* child-pressed: Record, Continue, Start, Fate cards,
+                         Listen. Height AND min-width (≈ 2 × 2 cm). */
+  --tap-gap:     8px;   /* minimum gap between any two targets */
+  --tap-gap-kid: 16px;  /* gap between child buttons */
+  --zone-gap:    32px;  /* minimum distance from grown-up tools to Record */
+  --tap-step:    64px;  /* +/- stepper buttons (player count on setup):
+                         bigger than --tap-min for small fingers, smaller
+                         than --tap-kid so two fit beside the number at 320px */
+  --clear-band:  24px;  /* empty band kept above the pinned bottom bar, so the
+                         last content and its focus ring never sit under it
+                         (accessibility pass A-10). Use as content
+                         padding-bottom and in scroll-padding-bottom. */
+
+  /* ---- 1.10 Outline and border widths (B's solid outlined buttons) ----- */
+  --border-hair:     1px;  /* decorative hairline */
+  --outline-tools:   2px;  /* grown-up tool buttons */
+  --outline-btn:     3px;  /* all child buttons and chips that act */
+  --outline-card:    2px;  /* card keyline */
+  --focus-width:     3px;  /* each band of the two-tone focus ring */
+  --focus-offset:    2px;
+  --opacity-dimmed:  0.6;  /* unpicked Fate cards etc. Never lower: 0.5 left
+                              text at 4.8:1 (accessibility pass A-17) */
+
+  /* ---- 1.10a System colours for forced-colors mode (Windows High
+     Contrast). Used ONLY inside @media (forced-colors: active) in the
+     component CSS (accessibility pass A-01, A-12, A-13). */
+  --system-ink:        CanvasText;
+  --system-canvas:     Canvas;
+  --system-focus:      Highlight;
+  --system-button-ink: ButtonText;
+
+  /* ---- 1.11 Motion -------------------------------------------------------
+     No motion during a turn (DRD §6). Only round breaks, Twist reveal,
+     Fate and the story cover. Reduced motion → 0 (section 5). */
+  --dur-instant:  0ms;
+  --dur-fast:     150ms;  /* button press feedback */
+  --dur-base:     200ms;  /* Replace Prompt cross-fade (DRD §7) */
+  --dur-slow:     400ms;  /* round-break banner, pause dim */
+  --dur-ceremony: 700ms;  /* Fate card grow, story cover rise */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter:    cubic-bezier(0, 0, 0, 1);
+  --ease-exit:     cubic-bezier(0.3, 0, 1, 1);
+  --motion-distance: 12px;   /* max travel of a rise / slide */
+  --motion-grow:     1.06;   /* scale for the chosen Fate card */
+
+  /* ---- 1.12 Layers ------------------------------------------------------- */
+  --z-base:    0;
+  --z-tools:   10;
+  --z-overlay: 100;   /* Pause dim */
+  --z-toast:   200;
+
+  /* ---- 1.13 Card system: sizes shared by all three card styles --------
+     Used by web/css/cards.css. Phone values; TV values in section 3. */
+  --card-max-w:  300px;      /* gallery / setup card */
+  --card-aspect: 63 / 88;    /* poker size, same ratio on screen and paper */
+  /* --card-pad: default lives in section 4.0 (:where(:root)), see there */
+  --card-gap:    var(--space-2);
+  --card-edge-h: 12px;       /* patterned edge strip */
+  --card-window-aspect-base: 200 / 120;   /* scene art viewBox */
+  --fs-card-type:   1rem;    /* type word, sentence case ("World") */
+  --fs-card-title:  1.3125rem;
+  --fs-card-text:   1.0625rem;
+  --fs-card-prompt: 1.4375rem;    /* prompt text on a gallery card */
+  --lh-card-text:   1.35;
+  --ls-card-type:   0.04em;
+  --fw-heavy: 900;           /* sticker labels */
+  --icon-sm: 20px;
+  --icon-md: 24px;
+  --icon-lg: 32px;
+  --icon-xl: 48px;
+  --icon-band: 40px;    /* character icon in the player band (turn screens) */
+  --icon-hero: 112px;   /* big character icon on the hand-over screen (T0) */
+  --keyline-thin: 1.5px;     /* drop-shadow keyline around shaped parts */
+  --keyline-bold: 3px;
+
+  /* Edge-pattern ink per type (pattern drawn over the type colour) */
+  --pattern-ink-world:  rgba(255, 255, 255, 0.22);
+  --pattern-ink-quest:  rgba(27, 24, 48, 0.16);
+  --pattern-ink-prompt: rgba(255, 244, 222, 0.16);
+  --pattern-ink-twist:  rgba(255, 255, 255, 0.20);
+  --pattern-ink-fate:   rgba(255, 255, 255, 0.20);
+
+  /* ---- 1.14 Print / line art (section 6) -------------------------------
+     Printed cards are line art only: black on white, no fills, so they
+     photocopy well (decision 2026-10-22 §1.3). */
+  --print-ink:   #000000;
+  --print-paper: #FFFFFF;
+  --print-card-w: 63mm;      /* poker card, 63 x 88 mm */
+  --print-card-h: 88mm;
+  --print-safe:   2.5mm;     /* inset so outlines never touch the cut */
+  --print-line:   0.35mm;
+  --print-scene-line: 1.3;   /* SVG user units in the 200 x 120 scene */
+  --print-art-h:  27mm;
+  --print-fs-type:   9pt;
+  --print-fs-title:  12pt;
+  --print-fs-text:   10.5pt;
+  --print-fs-prompt: 13pt;
+  --print-icon:      5mm;
+  --print-cut-len:   5mm;    /* crop mark length */
+  --print-cut-off:   1.5mm;  /* gap between crop mark and card corner */
+  --print-cut-line:  0.2mm;
+  --print-a4-w: 210mm;       --print-a4-h: 297mm;
+  --print-letter-w: 215.9mm; --print-letter-h: 279.4mm;
+}
+
+
+/* --------------------------------------------------------------------------
+   2. LEVEL THEMES (colour, shape, texture, prompt size only)
+   -------------------------------------------------------------------------- */
+
+/* ---- 2.1 Story Sprout: warm campfire (default) ------------------------- */
+:root,
+[data-level="sprout"] {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --color-bg:        var(--night-900);
+  --color-surface:   var(--night-800);   /* chips, turn track, panels */
+  --color-surface-2: var(--night-700);   /* quiet button fill */
+  --color-tools-bg:  var(--night-950);   /* grown-up tools bar */
+  --color-card:      var(--cream-50);    /* glowing card face */
+
+  /* Text */
+  --color-ink:            var(--moon-100);   /* on bg / surface */
+  --color-ink-muted:      var(--lilac-300);
+  --color-tools-ink:      var(--lilac-300);
+  --color-card-ink:       var(--ink-900);    /* prompt text: ≥ 7:1 */
+  --color-card-ink-muted: var(--ink-600);
+
+  /* Lines (non-text). --color-line is decorative; outlines must pass 3:1. */
+  --color-line:          var(--night-500);
+  --color-outline:       var(--lilac-300);   /* quiet button outline */
+  --color-tools-outline: var(--lilac-400);
+  --color-card-keyline:  rgba(27, 24, 48, 0.12);
+
+  /* Accent = active-turn marker, timer fill, glow tint */
+  --color-accent:    var(--amber-400);
+  --color-on-accent: var(--ink-900);
+
+  /* Buttons (B style: solid fill, solid outline, hard lip shadow) */
+  --color-primary:       var(--amber-400);  /* Record (icon ui-mic) */
+  --color-on-primary:    var(--ink-900);
+  --color-primary-edge:  var(--ink-900);
+  --color-primary-lip:   var(--amber-800);
+  --color-secondary:      var(--night-700); /* Continue without recording (icon ui-continue) */
+  --color-on-secondary:   var(--moon-100);
+  --color-secondary-edge: var(--lilac-300);
+  --color-secondary-lip:  var(--night-950);
+
+  /* Focus ring: two bands so one always contrasts ≥ 3:1 with whatever is
+     behind it (night, cream card, amber button, any player colour).
+     The OUTER band must be a real outline, because forced-colors mode
+     removes box-shadow (accessibility pass A-01, verified):
+       :focus-visible {
+         outline: var(--focus-width) solid var(--color-focus-outer);
+         outline-offset: var(--focus-width);
+         box-shadow: 0 0 0 var(--focus-width) var(--color-focus-inner);
+       }
+       @media (forced-colors: active) {
+         :focus-visible { outline-color: var(--system-focus); box-shadow: none; }
+       } */
+  --color-focus-inner: var(--ink-900);
+  --color-focus-outer: var(--moon-100);
+
+  /* States */
+  --color-success:         var(--mint-300);   /* text on bg, with icon ui-check */
+  --color-warning-gentle:  var(--ember-300);  /* text on bg, never red, no alarm */
+  --color-rec:             var(--rose-400);   /* "Recording" dot, fill, text */
+  --color-on-rec:          var(--ink-900);
+  --color-timer-fill:      var(--amber-400);
+  --color-timer-fill-late: var(--ember-300);  /* "Finish your thought" (with words) */
+  --color-timer-track:     var(--night-700);
+  --color-overlay:         rgba(6, 9, 20, 0.78); /* Pause dim over the table */
+
+  /* Shape */
+  --radius-card: 22px;
+  --radius-btn:  20px;
+  --radius-chip: 999px;
+  --radius-panel: 16px;
+  --radius-tools: 12px;
+
+  /* Light, glow, texture */
+  --shadow-btn-lip:   0 5px 0 var(--color-primary-lip);
+  --shadow-btn-lip-2: 0 5px 0 var(--color-secondary-lip);
+  --shadow-card: 0 0 0 1px rgba(255, 181, 74, 0.28), 0 14px 44px rgba(255, 165, 70, 0.20);
+  --shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --glow-active: 0 0 0 4px rgba(255, 181, 74, 0.25);
+  /* Star field + campfire glow from below. Never "spooky": warm, sparse. */
+  --texture-bg:
+    radial-gradient(ellipse 75% 40% at 50% 112%, rgba(255, 150, 60, 0.20), transparent 70%),
+    radial-gradient(1.5px 1.5px at 8% 14%, rgba(246, 238, 220, 0.55), transparent 60%),
+    radial-gradient(1px 1px at 22% 6%, rgba(246, 238, 220, 0.50), transparent 60%),
+    radial-gradient(1.5px 1.5px at 63% 9%, rgba(246, 238, 220, 0.45), transparent 60%),
+    radial-gradient(1px 1px at 81% 21%, rgba(246, 238, 220, 0.50), transparent 60%),
+    radial-gradient(1.5px 1.5px at 93% 7%, rgba(246, 238, 220, 0.40), transparent 60%);
+
+  --fs-prompt: var(--fs-prompt-sprout);
+  --fw-prompt: var(--fw-display);
+
+  /* Card-style atoms that change by level (used by section 4).
+     Sprout: gold foil, amber glow, tilted stickers, plain page. */
+  --card-metal-hi:   #FFF0C2;
+  --card-metal:      #E9B54E;
+  --card-metal-lo:   #9A6618;
+  --card-metal-band: #EDBF5F;
+  --card-glow:       rgba(255, 176, 80, 0.38);
+  --card-glow-soft:  rgba(255, 181, 74, 0.16);
+  --card-page-line:  rgba(138, 82, 14, 0.38);
+  --card-page-grid:  none;
+  --card-tilt:       1.5deg;
+  --card-label-tilt: -4deg;
+  --card-stitch:     none;
+  --card-sticker-mark: var(--amber-400);
+  --fs-card-text-level: var(--fs-card-text);
+  --print-art-h-level: var(--print-art-h);
+  --print-fs-text-level: var(--print-fs-text);
+}
+
+/* ---- 2.2 Tale Weaver: adventure map (teal). Same layout and sizes. ---- */
+[data-level="weaver"] {
+  --color-bg:        var(--sea-900);
+  --color-surface:   var(--sea-800);
+  --color-surface-2: var(--sea-700);
+  --color-tools-bg:  var(--sea-950);
+  --color-card:      var(--cream-50); /* same cream as Sprout so printed cards match (decision 2026-10-21 Q8) */
+
+  --color-ink:       var(--foam-100);
+  --color-ink-muted: var(--mist-300);
+  --color-tools-ink: var(--mist-300);
+
+  --color-line:          var(--sea-500);
+  --color-outline:       var(--mist-300);
+  --color-tools-outline: var(--mist-400);
+
+  /* Teal marks the turn; amber stays only on Record */
+  --color-accent:    var(--teal-300);
+  --color-on-accent: var(--sea-900);
+
+  --color-secondary:      var(--sea-700);
+  --color-on-secondary:   var(--foam-100);
+  --color-secondary-edge: var(--mist-300);
+  --color-secondary-lip:  var(--sea-950);
+
+  --color-focus-outer: var(--foam-100);
+
+  --color-timer-fill:  var(--teal-300);
+  --color-timer-track: var(--sea-700);
+  --color-overlay:     rgba(5, 12, 17, 0.78);
+
+  /* Squarer, calmer shapes for 10–14 */
+  --radius-card: 14px;
+  --radius-btn:  12px;
+  --radius-chip: 10px;
+  --radius-panel: 10px;
+  --radius-tools: 8px;
+
+  --shadow-card: 0 0 0 1px rgba(108, 195, 181, 0.22), 0 12px 36px rgba(0, 0, 0, 0.45);
+  --glow-active: 0 0 0 4px rgba(108, 195, 181, 0.25);
+  /* Faint map grid instead of stars */
+  --texture-bg:
+    linear-gradient(rgba(185, 198, 207, 0.06) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, rgba(185, 198, 207, 0.06) 1px, transparent 1px) 0 0 / 48px 48px;
+
+  --fs-prompt: var(--fs-prompt-weaver);
+  --fw-prompt: var(--fw-bold);
+
+  /* Card-style atoms: silver-teal foil, teal glow, no tilt, journal grid,
+     stitched explorer patch (stickers). */
+  --card-metal-hi:   #F1F6F7;
+  --card-metal:      #A9C3CB;
+  --card-metal-lo:   #4E6F7C;
+  --card-metal-band: #B4CBD2;
+  --card-glow:       rgba(108, 195, 181, 0.34);
+  --card-glow-soft:  rgba(108, 195, 181, 0.16);
+  --card-page-line:  rgba(31, 53, 71, 0.35);
+  --card-page-grid:  linear-gradient(rgba(31, 53, 71, 0.07) 1px, transparent 1px) 0 0 / 100% 22px,
+                     linear-gradient(90deg, rgba(31, 53, 71, 0.07) 1px, transparent 1px) 0 0 / 22px 100%;
+  --card-tilt:       0deg;
+  --card-label-tilt: 0deg;
+  --card-stitch:     dashed;
+  --card-sticker-mark: var(--teal-300);
+  --fs-card-text-level: calc(var(--fs-card-text) * 0.94);   /* Weaver texts are longer (up to ~120 chars) */
+  --print-art-h-level: 19mm;     /* smaller picture so 120-char texts fit 63 x 88 mm */
+  --print-fs-text-level: 9.5pt;
+}
+
+
+/* --------------------------------------------------------------------------
+   3. DEVICE SIZES (phone values are the defaults above)
+   -------------------------------------------------------------------------- */
+
+/* Tablet / laptop landscape: 1024×768, 1280×800 */
+@media (min-width: 768px) {
+  :root {
+    --gutter: 24px;
+    --stack:  var(--space-5);
+    --fs-body: var(--fs-400);
+    --fs-chip: var(--fs-400);
+    --fs-turn: clamp(2rem, 1.6vw + 1.25rem, 2.5rem);
+    --fs-display: clamp(2.25rem, 2vw + 1.25rem, 3rem);
+    /* 768 → 53px, 1024 → 59px, ≥ 1091 → 60px */
+    --fs-prompt-sprout: clamp(3.25rem, 2.4vw + 2.125rem, 3.75rem);
+    /* 768 → 52px, ≥ 1067 → 56px */
+    --fs-prompt-weaver: clamp(3.25rem, 1.34vw + 2.60625rem, 3.5rem);
+  }
+}
+
+/* TV landscape, 1920×1080, read from 2–3 m. Media query OR opt-in attribute. */
+@media (min-width: 1800px) and (orientation: landscape) {
+  :root {
+    --gutter: 64px;
+    --stack:  var(--space-7);
+    --fs-tools: 1.375rem;
+    --fs-body: 1.75rem;
+    --fs-chip: 1.75rem;
+    --fs-btn-kid: 2rem;
+    --fs-turn: 3.5rem;
+    --fs-display: 4rem;
+    --fs-prompt-sprout: clamp(5rem, 4.4vw, 7rem);  /* 1920 → 84px */
+    --fs-prompt-weaver: clamp(4.5rem, 3.8vw, 6rem);   /* 1920 → 73px */
+    --tap-kid: 120px;
+    --card-max-w: 420px;
+    --fs-card-type: 1.375rem;
+    --fs-card-title: 1.875rem;
+    --fs-card-text: 1.5rem;
+    --fs-card-prompt: 2rem;
+    --icon-md: 32px;
+    --icon-lg: 44px;
+  }
+}
+:root[data-display="tv"] {
+  --gutter: 64px;
+  --stack:  var(--space-7);
+  --fs-tools: 1.375rem;
+  --fs-body: 1.75rem;
+  --fs-chip: 1.75rem;
+  --fs-btn-kid: 2rem;
+  --fs-turn: 3.5rem;
+  --fs-display: 4rem;
+  --fs-prompt-sprout: 5.25rem;
+  --fs-prompt-weaver: 4.5rem;
+  --tap-kid: 120px;
+  --card-max-w: 420px;
+  --fs-card-type: 1.375rem;
+  --fs-card-title: 1.875rem;
+  --fs-card-text: 1.5rem;
+  --fs-card-prompt: 2rem;
+  --icon-md: 32px;
+  --icon-lg: 44px;
+}
+
+
+/* --------------------------------------------------------------------------
+   4. CARD STYLES (task 2.6; decision 2026-10-22-card-styles-and-switcher)
+   --------------------------------------------------------------------------
+   One Campfire Night base, three card styles, switched by
+   data-card-style on <html>. Only card frames, shapes, art windows and
+   textures change. Components that use these: web/css/cards.css.
+
+   HOW THE BLOCKS WORK
+   - Every selector is wrapped in :where() (specificity 0), so the level
+     blocks, prefers-contrast (section 5) and print (section 6) always win.
+   - Each block is also re-declared on every [data-level] element inside
+     the style, because some values here use level atoms (--card-metal-*,
+     --card-glow, --card-tilt ...) and var() is resolved where a property
+     is declared. Level can therefore sit on <html> or on any app root.
+   - Per-type shapes are named --card-<slot>-<type>; cards.css maps them to
+     the card with var(--card-<slot>-<type>, none), so a style only lists
+     the slots it uses. A later Action card (Story Storm bundle) adds
+     --card-*-action values here plus one type block in cards.css.
+
+   NON-COLOUR IDENTITY per style (shape + symbol + word, never colour alone)
+   - lantern:     art-window shape (house / porthole / speech bubble / blob /
+                  sunrise) + lantern symbol + word + ribbon pattern
+   - collectible: banner shape (arch / forked ribbon / rounded tag /
+                  zigzag / pointed) + medallion shape (circle / shield /
+                  rounded square / diamond / star) + patterned frame
+   - sticker:     card silhouette (arched / pennant / speech bubble /
+                  zigzag / ticket) + pattern strip + label word
+   Symbols: card-world, card-quest, card-prompt, card-twist, card-fate.
+   -------------------------------------------------------------------------- */
+
+/* ---- 4.0 Scene-art palette, shared default (decorative only, never behind
+   text). Scenes are inline SVG painted by class (cards.css section 5). */
+:where(:root) {
+  --sc-sky: #FAD9A6;   --sc-sun: #FFB54A;   --sc-cloud: #FFF4DE;
+  --sc-ground: #9ED49B; --sc-tree: #5FB37A; --sc-wall: #F2C27B;
+  --sc-roof: #B8402F;  --sc-win: #FFF4DE;   --sc-door: #7A4E2D;
+  --sc-path: #E8B87A;  --sc-ink: #1B1830;   --sc-inkf: #1B1830;
+  --sc-ring1: rgba(242, 179, 61, 0.30);    --sc-ring2: rgba(242, 179, 61, 0.55);
+  --sc-bus: #F2B33D;   --sc-fur: #E3A15E;   --sc-pink: #F49AA5;
+  --sc-belly: #FFF4DE; --sc-bubble: #FFFFFF; --sc-star: #FFB54A;
+  --sc-pot: #B9B6D3;   --sc-rays: rgba(255, 214, 120, 0.6);
+  --sc-flag1: #F8784E; --sc-flag2: #6E9BFF; --sc-paper: #F8F1E2;
+  --sc-grid: rgba(31, 53, 71, 0.18);       --sc-coast: rgba(108, 195, 181, 0.35);
+  --sc-line-w: 2;      /* s-ln stroke, SVG units */
+  --sc-outline-w: 1.5; /* outline on filled shapes, SVG units */
+}
+
+/* Card padding default. Zero specificity on purpose (2026-10-23): if it sat
+   in the section 1 :root block, :root (0,1,0) would beat the card-style
+   blocks below (:where(...), 0,0,0) whenever data-card-style is on <html>
+   itself, and every style would get this padding instead of its own
+   (verified: Collectible banner then covered the card title). */
+:where(:root) { --card-pad: var(--space-4); }
+
+/* ---- 4.1 Lantern storybook (DEFAULT) -----------------------------------
+   A glowing storybook page hanging from a small paper lantern that carries
+   the type symbol. The picture window's shape tells the type. A bookmark
+   ribbon with the edge pattern hangs off the bottom. */
+:where(:root:not([data-card-style]), [data-card-style="lantern"]),
+:where(:root:not([data-card-style]) [data-level], [data-card-style="lantern"] [data-level]) {
+  --lantern-page-hi: #FFF9EC;
+  --lantern-page:    #FFF3DA;
+  --lantern-page-lo: #FBE6C0;
+  --card-face: var(--card-page-grid),
+               radial-gradient(120% 90% at 50% 32%, var(--lantern-page-hi), var(--lantern-page) 55%, var(--lantern-page-lo));
+  --card-radius: var(--radius-panel);
+  --card-pad: var(--space-5) var(--space-4) var(--space-4) var(--space-5);
+  --card-shadow: 0 0 0 1px var(--card-page-line), 0 0 38px var(--card-glow), 0 18px 38px rgba(0, 0, 0, 0.42);
+  --card-spine: linear-gradient(90deg, rgba(138, 82, 14, 0.20), transparent);
+  --card-spine-w: 16px;
+  --card-hang: 78px;              /* room above the page for the lantern */
+  --card-hang-phone: 60px;        /* phones: type tag beside the lantern (app.css phone layout) */
+  --card-keyline-ink: var(--ink-900);
+  --card-art-glow: drop-shadow(0 0 12px var(--card-glow));
+
+  /* Lantern (carries the type symbol) */
+  --lantern-w: 46px;
+  --lantern-h: 52px;
+  --lantern-radius: 18px / 22px;
+  --lantern-cap-w: 20px;
+  --lantern-cap-h: 7px;
+  --lantern-string-h: 14px;
+  --lantern-string: var(--lilac-300);
+  --lantern-rim: var(--moon-100);   /* separates dark lanterns from the night sky (3:1) */
+  --lantern-glow: 0 0 26px 8px var(--card-glow);
+  --lantern-turn-w: 32px;           /* small lantern on the turn-screen prompt */
+  --lantern-turn-h: 36px;
+
+  /* Bookmark ribbon (edge pattern) */
+  --lantern-ribbon-w: 24px;
+  --lantern-ribbon-h: 58px;
+  --lantern-ribbon-shape: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+
+  /* Art windows: the type's shape (clip-path on the scene) */
+  --card-window-world:  polygon(50% 0, 100% 24%, 100% 100%, 0 100%, 0 24%);   /* house */
+  --card-window-quest:  circle(closest-side);                                   /* porthole */
+  --card-window-prompt: inset(0 0 16px 0 round 26px);                           /* speech bubble (+ tail) */
+  --card-window-twist:  inset(0 round 44% 56% 52% 48% / 58% 44% 56% 42%);      /* blob */
+  --card-window-fate:   inset(0 round 50% 50% 0 0 / 100% 100% 0 0);           /* sunrise */
+  --card-window-aspect-world:  200 / 130;
+  --card-window-aspect-quest:  1 / 1;
+  --card-window-aspect-prompt: 200 / 130;
+  --card-window-aspect-twist:  200 / 130;
+  --card-window-aspect-fate:   2 / 1;
+  --card-window-width-quest:   76%;
+  --card-tail-w: 30px;              /* speech-bubble tail of the Prompt window */
+  --card-tail-h: 18px;
+  --card-tail-x: 34px;
+
+  /* Turn-screen prompt: words inside a speech bubble on the page */
+  --card-turn-bubble: var(--lantern-page-hi);
+  --card-turn-bubble-radius: 26px;
+
+  --sc-sky: #FFD9A0; --sc-ground: #D8D98C; --sc-wall: #F6C77E; --sc-roof: #C4673A;
+  --sc-win: #FFF6D8; --sc-ink: #8A520E; --sc-tree: #9DBF6A; --sc-path: #F2CF94;
+  --sc-cloud: #FFF1D8;
+  --sc-outline-w: 0;    /* soft light, no outlines */
+  --sc-line-w: 1.6;
+}
+
+/* ---- 4.2 Collectible card game ------------------------------------------
+   Trading-card frame: foil rim, thick type-colour frame with the edge
+   pattern, shaped banner, art window, cream panel, corner medallion.
+   Titles use Atkinson Hyperlegible like everything else (no serif). */
+:where([data-card-style="collectible"]),
+:where([data-card-style="collectible"] [data-level]) {
+  --card-face: linear-gradient(135deg, var(--card-metal-hi), var(--card-metal) 22%, var(--card-metal-lo) 48%, var(--card-metal) 70%, var(--card-metal-hi));
+  --card-radius: var(--radius-panel);
+  --card-frame-width: 5px;          /* foil rim */
+  --collect-frame-width: 10px;      /* type-colour frame inside the rim */
+  --collect-pad-top: 44px;          /* room for the banner */
+  --card-pad: calc(var(--card-frame-width) + var(--collect-pad-top)) calc(var(--card-frame-width) + var(--collect-frame-width)) calc(var(--card-frame-width) + var(--collect-frame-width));
+  --card-shadow: 0 0 0 var(--keyline-thin) var(--ink-900), 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 28px var(--card-glow-soft);
+  --card-sheen: linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.22) 32%, transparent 44%, transparent 64%, rgba(255, 255, 255, 0.12) 74%, transparent 84%);
+  --card-keyline-ink: var(--ink-900);
+  --collect-inner: #FFFAEE;         /* cream panel under text */
+  --collect-panel-radius: 8px;
+  --collect-panel-ring: 2px;        /* foil ring around panels, then ink */
+  --collect-band-h: 30px;
+  --collect-band-top: 12px;
+  --collect-band-face: linear-gradient(var(--card-metal-hi), var(--card-metal-band));
+  --collect-medal: 40px;
+  --collect-medal-big: 48px;        /* diamond and star read smaller */
+  --collect-medal-ring: 2px;
+
+  /* Banner shapes (clip-path on the banner face) */
+  --card-banner-world:  inset(0 round 50% 50% 5px 5px / 100% 100% 5px 5px);                       /* arch */
+  --card-banner-quest:  polygon(0 0, 100% 0, 88% 50%, 100% 100%, 0 100%, 12% 50%);                 /* forked ribbon */
+  --card-banner-prompt: inset(0 round 12px);                                                         /* rounded tag */
+  --card-banner-twist:  polygon(0% 0, 5% 5px, 10% 0, 15% 5px, 20% 0, 25% 5px, 30% 0, 35% 5px, 40% 0, 45% 5px, 50% 0, 55% 5px, 60% 0, 65% 5px, 70% 0, 75% 5px, 80% 0, 85% 5px, 90% 0, 95% 5px, 100% 0, 100% 100%, 95% calc(100% - 5px), 90% 100%, 85% calc(100% - 5px), 80% 100%, 75% calc(100% - 5px), 70% 100%, 65% calc(100% - 5px), 60% 100%, 55% calc(100% - 5px), 50% 100%, 45% calc(100% - 5px), 40% 100%, 35% calc(100% - 5px), 30% 100%, 25% calc(100% - 5px), 20% 100%, 15% calc(100% - 5px), 10% 100%, 5% calc(100% - 5px), 0 100%);  /* zigzag */
+  --card-banner-fate:   polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%);                  /* pointed */
+  /* Medallion shapes (clip-path on the medallion) */
+  --card-medal-world:  circle(50%);
+  --card-medal-quest:  polygon(50% 0, 100% 14%, 100% 56%, 50% 100%, 0 56%, 0 14%);                   /* shield */
+  --card-medal-prompt: inset(0 round 10px);
+  --card-medal-twist:  polygon(50% 0, 100% 50%, 50% 100%, 0 50%);                                    /* diamond */
+  --card-medal-fate:   polygon(50% 0, 61% 33%, 97% 35%, 68% 56%, 79% 91%, 50% 70%, 21% 91%, 32% 56%, 3% 35%, 39% 33%); /* star */
+  /* Art window: one rectangle for every type (the banner carries the shape) */
+  --card-window-world:  inset(0 round 8px);
+  --card-window-quest:  inset(0 round 8px);
+  --card-window-prompt: inset(0 round 8px);
+  --card-window-twist:  inset(0 round 8px);
+  --card-window-fate:   inset(0 round 8px);
+
+  --card-turn-bubble: var(--collect-inner);
+  --card-turn-bubble-radius: var(--collect-panel-radius);
+
+  --sc-sky: #F7C98B; --sc-ground: #7CC08A; --sc-wall: #F0C98A;
+}
+
+/* ---- 4.3 Toy box sticker book --------------------------------------------
+   Die-cut sticker: white backing, type-colour ring, five silhouettes, a
+   tilted label sticker. Tale Weaver: stitched "explorer patch", no tilt. */
+:where([data-card-style="sticker"]),
+:where([data-card-style="sticker"] [data-level]) {
+  --card-face: var(--cream-50);
+  --card-radius: var(--radius-card);
+  --sticker-pad-x: 20px;            /* clears the Weaver stitch line */
+  --card-pad: 18px var(--sticker-pad-x);
+  --card-shadow: none;              /* the outline comes from the sticker backing */
+  --card-keyline-ink: var(--ink-900);
+  --sticker-back: var(--white);     /* white die-cut backing */
+  --sticker-back-w: 4px;
+  --sticker-ring-w: 5px;            /* ring inside the backing: the card's type colour
+                                       (cards.css: var(--sticker-ring-color, var(--tc)));
+                                       print sets --sticker-ring-color to ink */
+  --sticker-lift: 0 8px 0 rgba(0, 0, 0, 0.35);
+  --sticker-label-ring: 3px;
+  --sticker-art-radius: 18px;
+  --sticker-stitch-w: 2px;
+  --sticker-stitch-offset: -12px;
+  --sticker-stitch-ink: var(--ink-600);
+  --sticker-mark: 44px;
+  --sticker-mark-tilt: 8deg;
+
+  /* Silhouettes (clip-path / mask on the card face) */
+  --card-silhouette-world:  inset(0 round 50% 50% 26px 26px / 70px 70px 26px 26px);   /* arched top */
+  --card-silhouette-quest:  polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 28px), 0 100%); /* pennant */
+  --card-silhouette-prompt: inset(0 round 30px);                                        /* speech bubble (+ tail) */
+  --card-silhouette-twist:  polygon(0% 0, 4.167% 10px, 8.333% 0, 12.5% 10px, 16.67% 0, 20.83% 10px, 25% 0, 29.17% 10px, 33.33% 0, 37.5% 10px, 41.67% 0, 45.83% 10px, 50% 0, 54.17% 10px, 58.33% 0, 62.5% 10px, 66.67% 0, 70.83% 10px, 75% 0, 79.17% 10px, 83.33% 0, 87.5% 10px, 91.67% 0, 95.83% 10px, 100% 0, 100% 100%, 95.83% calc(100% - 10px), 91.67% 100%, 87.5% calc(100% - 10px), 83.33% 100%, 79.17% calc(100% - 10px), 75% 100%, 70.83% calc(100% - 10px), 66.67% 100%, 62.5% calc(100% - 10px), 58.33% 100%, 54.17% calc(100% - 10px), 50% 100%, 45.83% calc(100% - 10px), 41.67% 100%, 37.5% calc(100% - 10px), 33.33% 100%, 29.17% calc(100% - 10px), 25% 100%, 20.83% calc(100% - 10px), 16.67% 100%, 12.5% calc(100% - 10px), 8.333% 100%, 4.167% calc(100% - 10px), 0 100%); /* zigzag */
+  --card-silhouette-fate:   inset(0 round 24px);                                         /* ticket (+ notches) */
+  --card-mask-fate: radial-gradient(circle 16px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+                    radial-gradient(circle 16px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  --card-pad-world: 34px var(--sticker-pad-x) 18px;
+  --card-pad-quest: 18px var(--sticker-pad-x) 46px;
+  --card-pad-twist: 26px var(--sticker-pad-x);
+  --card-pad-fate:  18px 28px;
+  --card-tail-prompt: block;        /* the Prompt sticker has a speech tail */
+  --card-tail-w: 40px;
+  --card-tail-h: 26px;
+  --card-tail-x: 30px;
+  /* Art windows: rounded rectangle for every type (silhouette carries the shape) */
+  --card-window-world:  inset(0 round 15px);
+  --card-window-quest:  inset(0 round 15px);
+  --card-window-prompt: inset(0 round 15px);
+  --card-window-twist:  inset(0 round 15px);
+  --card-window-fate:   inset(0 round 15px);
+
+  --card-turn-bubble: var(--cream-50);
+  --card-turn-bubble-radius: 30px;
+
+  --sc-sky: #9CC3FF; --sc-ground: #7EE0A1; --sc-wall: #FFE94A; --sc-roof: #F8784E;
+  --sc-door: #7B55D0; --sc-tree: #3FAF6C; --sc-bus: #FFE94A; --sc-path: #FFC98A;
+  --sc-fur: #F2A65A; --sc-pot: #E2E6FF;
+  --sc-ring1: rgba(255, 233, 74, 0.55); --sc-ring2: rgba(255, 233, 74, 0.9);
+  --sc-outline-w: 3;  /* chunky outlines */
+  --sc-line-w: 3;
+}
+
+
+/* --------------------------------------------------------------------------
+   5. USER PREFERENCES
+   -------------------------------------------------------------------------- */
+
+/* Reduced motion: every duration 0, no travel, no grow (DRD §9.2). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast:     0ms;
+    --dur-base:     0ms;
+    --dur-slow:     0ms;
+    --dur-ceremony: 0ms;
+    --motion-distance: 0px;
+    --motion-grow:     1;
+  }
+}
+
+/* More contrast: muted text becomes full ink, hairlines become outlines,
+   outlines thicken, textures and glows switch off. */
+@media (prefers-contrast: more) {
+  :root,
+  [data-level="sprout"],
+  [data-level="weaver"] {
+    --color-ink-muted:      var(--color-ink);
+    --color-tools-ink:      var(--color-ink);
+    --color-card-ink-muted: var(--ink-900);
+    --color-line:           var(--color-outline);
+    --color-tools-outline:  var(--color-outline);
+    --color-card-keyline:   var(--ink-900);
+    --outline-tools: 3px;
+    --outline-btn:   4px;
+    --focus-width:   4px;
+    --texture-bg: none;
+    --shadow-card: 0 0 0 2px var(--color-ink);
+    --color-overlay: rgba(0, 0, 0, 0.88);
+    /* Cards: no sheen, glow, grid or page shading in any card style */
+    --card-sheen: none;
+    --card-spine: none;
+    --card-glow: transparent;
+    --card-glow-soft: transparent;
+    --card-page-grid: none;
+    --card-page-line: var(--ink-900);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. PRINT / LINE ART (all three card styles)
+   --------------------------------------------------------------------------
+   class="print" on any ancestor (preview toggle, print sheets) or the
+   browser's print. Black on white only: every fill becomes paper, every
+   type colour becomes paper with an ink outline, patterns are drawn in
+   ink. Shapes, symbols and words still tell the types apart. The printed
+   style is decided after playtests, so all three styles have a print form.
+   KEEP THE TWO BLOCKS BELOW IDENTICAL. */
+.print,
+.print [data-level] {
+  --color-card: var(--print-paper);
+  --color-card-ink: var(--print-ink);
+  --color-card-ink-muted: var(--print-ink);
+  --card-world: var(--print-paper);  --on-card-world:  var(--print-ink);
+  --card-quest: var(--print-paper);  --on-card-quest:  var(--print-ink);
+  --card-prompt: var(--print-paper); --on-card-prompt: var(--print-ink);
+  --card-twist: var(--print-paper);  --on-card-twist:  var(--print-ink);
+  --card-fate: var(--print-paper);   --on-card-fate:   var(--print-ink);
+  --pattern-ink-world: var(--print-ink);  --pattern-ink-quest: var(--print-ink);
+  --pattern-ink-prompt: var(--print-ink); --pattern-ink-twist: var(--print-ink);
+  --pattern-ink-fate: var(--print-ink);
+  --card-face: var(--print-paper);
+  --card-shadow: 0 0 0 var(--print-line) var(--print-ink);
+  --card-sheen: none;
+  --card-spine: none;
+  --card-glow: transparent;
+  --card-glow-soft: transparent;
+  --card-page-grid: none;
+  --card-tilt: 0deg;
+  --card-label-tilt: 0deg;
+  --card-keyline-ink: var(--print-ink);
+  --card-art-glow: drop-shadow(0 0 0 transparent);
+  --card-turn-bubble: var(--print-paper);
+  --lantern-page-hi: var(--print-paper);
+  --lantern-rim: var(--print-ink);
+  --lantern-glow: 0 0 0 transparent;
+  --card-hang: 0px;
+  --collect-inner: var(--print-paper);
+  --collect-band-face: var(--print-paper);
+  --card-metal: var(--print-ink);      /* panel rings become ink */
+  --sticker-back: var(--print-paper);
+  --sticker-ring-color: var(--print-ink);
+  --sticker-ring-w: var(--print-line);
+  --sticker-lift: 0 0 0 transparent;
+  --card-sticker-mark: var(--print-paper);
+  --sticker-stitch-ink: var(--print-ink);
+  --sc-ink: var(--print-ink);
+  --color-focus-inner: var(--print-ink);
+  --fs-card-type: var(--print-fs-type);
+  --fs-card-title: var(--print-fs-title);
+  --fs-card-text: var(--print-fs-text);
+  --fs-card-text-level: var(--print-fs-text-level);
+  --fs-card-prompt: var(--print-fs-prompt);
+  --icon-sm: var(--print-icon);
+  --icon-md: var(--print-icon);
+}
+@media print {
+  :root,
+  [data-level] {
+    --color-card: var(--print-paper);
+    --color-card-ink: var(--print-ink);
+    --color-card-ink-muted: var(--print-ink);
+    --card-world: var(--print-paper);  --on-card-world:  var(--print-ink);
+    --card-quest: var(--print-paper);  --on-card-quest:  var(--print-ink);
+    --card-prompt: var(--print-paper); --on-card-prompt: var(--print-ink);
+    --card-twist: var(--print-paper);  --on-card-twist:  var(--print-ink);
+    --card-fate: var(--print-paper);   --on-card-fate:   var(--print-ink);
+    --pattern-ink-world: var(--print-ink);  --pattern-ink-quest: var(--print-ink);
+    --pattern-ink-prompt: var(--print-ink); --pattern-ink-twist: var(--print-ink);
+    --pattern-ink-fate: var(--print-ink);
+    --card-face: var(--print-paper);
+    --card-shadow: 0 0 0 var(--print-line) var(--print-ink);
+    --card-sheen: none;
+    --card-spine: none;
+    --card-glow: transparent;
+    --card-glow-soft: transparent;
+    --card-page-grid: none;
+    --card-tilt: 0deg;
+    --card-label-tilt: 0deg;
+    --card-keyline-ink: var(--print-ink);
+    --card-art-glow: drop-shadow(0 0 0 transparent);
+    --card-turn-bubble: var(--print-paper);
+    --lantern-page-hi: var(--print-paper);
+    --lantern-rim: var(--print-ink);
+    --lantern-glow: 0 0 0 transparent;
+    --card-hang: 0px;
+    --collect-inner: var(--print-paper);
+    --collect-band-face: var(--print-paper);
+    --card-metal: var(--print-ink);
+    --sticker-back: var(--print-paper);
+    --sticker-ring-color: var(--print-ink);
+    --sticker-ring-w: var(--print-line);
+    --sticker-lift: 0 0 0 transparent;
+    --card-sticker-mark: var(--print-paper);
+    --sticker-stitch-ink: var(--print-ink);
+    --sc-ink: var(--print-ink);
+    --color-focus-inner: var(--print-ink);
+    --fs-card-type: var(--print-fs-type);
+    --fs-card-title: var(--print-fs-title);
+    --fs-card-text: var(--print-fs-text);
+    --fs-card-text-level: var(--print-fs-text-level);
+    --fs-card-prompt: var(--print-fs-prompt);
+    --icon-sm: var(--print-icon);
+    --icon-md: var(--print-icon);
+  }
+}
+

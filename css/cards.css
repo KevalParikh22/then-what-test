@@ -1,0 +1,1066 @@
+/* ==========================================================================
+   Then What?! — Card components (task 2.6)
+   File:    web/css/cards.css   (load AFTER tokens.css)
+   Date:    2026-10-22 (compact variant, selected state, neutral Twist
+            picture: 2026-10-23)
+   Owner:   Technical Artist
+   Record:  design/2026-10-22-card-system.md
+   Preview: design/2026-10-22-card-system.html
+
+   RULES
+   - Uses ONLY tokens from tokens.css for colours, sizes, radii, shadows,
+     shapes and fonts. The only literals here are layout keywords, 0, 50%,
+     100%, -1 multipliers and the scene's SVG paint classes.
+   - Five types (World, Quest, Prompt, Twist, Fate) x three card styles
+     (data-card-style on <html>: lantern default | collectible | sticker)
+     x two levels (data-level: sprout | weaver). Level and style only
+     change tokens; the markup is the same for all six combinations.
+   - Never colour alone: every type has a shape (per style), a symbol and
+     a word. The Prompt on the turn screen is quiet in every style: no
+     picture, no sheen, no tilt (card--turn).
+   - No motion on cards. No emoji: icons come from web/icons/icons.svg,
+     inlined once in the page.
+   - Line art: class="print" on an ancestor, or @media print (section 7).
+
+   ---------------------------------------------------------------------------
+   MARKUP CONTRACT (ui.js must produce exactly this; text is escaped,
+   strings come from content.js, never from this file)
+   ---------------------------------------------------------------------------
+   Gallery / setup / Twist / Fate card:
+
+   <article class="card" data-card-type="world" aria-labelledby="c1-type c1-title">
+     <div class="card__frame">
+       <div class="card__band">
+         <span class="card__symbol"><svg class="icon" aria-hidden="true" focusable="false"><use href="#card-world"/></svg></span>
+         <span class="card__type" id="c1-type">World</span>
+       </div>
+       <div class="card__art" aria-hidden="true">            (optional)
+         <svg class="scene" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice">…</svg>
+         or, when there is no scene yet:
+         <span class="card__art-icon"><svg class="icon"><use href="#card-world"/></svg></span>
+       </div>
+       <div class="card__body">
+         <h3 class="card__title" id="c1-title">School After the Bell</h3>   (optional)
+         <p class="card__text">The school is empty after the last bell. …</p>
+       </div>
+       <div class="card__foot" aria-hidden="true">
+         <span class="card__edge"></span>
+         <span class="card__mark"><svg class="icon"><use href="#world-school"/></svg></span>
+       </div>
+     </div>
+   </article>
+
+   - data-card-type: world | quest | prompt | twist | fate  (action later)
+   - Type word and symbol ids: World card-world, Quest card-quest,
+     Prompt card-prompt, Twist card-twist, Fate card-fate.
+   - card__mark: the world's icon id (world-school, world-jungle,
+     world-lantern, or the Build a World where-<id>).
+   - Modifier card--tilt-left (sticker style only): tilts the other way, so
+     a row of stickers alternates. Ignored by the other styles.
+   - Read-aloud button (optional, any type): same <button class="card__say">
+     as in the turn card below. On a gallery card it is a direct child of
+     card__frame, right after card__band, and sits in the top-right corner
+     (on a Sticker World card the arched top needs it lower: not done yet).
+     On the turn card it is the last child of card__band.
+     Its name is specific, from content keys: hear-world, hear-quest,
+     hear-prompt, hear-twist, hear-fate (never a generic "Read aloud";
+     accessibility pass A-07). On the Fate choice screen it sits outside
+     the tappable label, never nested in it.
+   - Unpicked Fate cards: dim with opacity: var(--opacity-dimmed) (0.6),
+     never lower (A-17). Picked state must use border / outline, not
+     box-shadow alone (forced colours).
+   - Twist pinned for the next turn and Action cards are not specified
+     here yet (screens task 3.7). The Ending (Fate) choice list and the
+     story cover use card--compact (below).
+   - Twist art window (2026-10-23): a world scene is NEVER reused for every
+     Twist. A Twist shows a scene only when that scene was drawn for that
+     Twist card (today: the paw-print scene, School "Tiny Footprints",
+     school-t1, only). Every other Twist uses the NEUTRAL TWIST PICTURE:
+     <div class="card__art" aria-hidden="true"><span class="card__art-icon"><svg class="icon"><use href="#card-twist"/></svg></span></div>
+     cards.css paints it as the Twist pattern on the Twist colour with the
+     Twist symbol in a cream disc (section 2), so it tells nothing about
+     the story.
+
+   Turn-screen Prompt (quiet; no art, no foot):
+
+   <article class="card card--turn" data-card-type="prompt" aria-labelledby="tp-type">
+     <div class="card__frame">
+       <div class="card__band">
+         <span class="card__symbol"><svg class="icon" aria-hidden="true" focusable="false"><use href="#card-prompt"/></svg></span>
+         <span class="card__type" id="tp-type">Prompt</span>
+         <button class="card__say" type="button" aria-label="Hear the prompt">   (content key hear-prompt; hidden when speechSynthesis is missing)
+           <svg class="icon" aria-hidden="true" focusable="false"><use href="#ui-read-aloud"/></svg>
+         </button>
+       </div>
+       <div class="card__body">
+         <p class="card__text card__prompt">You hear a funny sound. What is making it?</p>
+       </div>
+     </div>
+   </article>
+
+   Compact card (card--compact, 2026-10-23): Ending choice list (F1) and
+   the story cover (E1). No art window, no fixed 63:88 ratio, full width.
+   Keeps the type's non-colour identity in every style: symbol + word +
+   Lantern: lantern + bookmark ribbon (edge pattern) | Collectible: banner
+   shape + medallion shape + patterned frame | Sticker: silhouette + label
+   + pattern strip. Lantern loses only its window shape (accepted, mockup
+   record 2026-10-22 §5 item 1). Same children as the gallery card, minus
+   card__art (if present it is hidden):
+
+   <article class="card card--compact" data-card-type="fate" aria-labelledby="cv-type cv-title">
+     <div class="card__frame">
+       <div class="card__band">…symbol + type word, as above…</div>
+       <button class="card__say" …>…</button>                    (optional, cover only)
+       <div class="card__body">
+         <h2 class="card__title" id="cv-title">Problem solved</h2>
+         <p class="card__text">You find the hamster just in time! …</p>
+       </div>
+       <div class="card__foot" aria-hidden="true">
+         <span class="card__edge"></span>
+         <span class="card__mark"><svg class="icon"><use href="#world-school"/></svg></span>
+       </div>
+     </div>
+   </article>
+
+   Ending choice (radio group, accessibility pass A-09 / A-17). The card is
+   the picture of the choice: a div with aria-hidden="true"; the radio's
+   name comes from aria-labelledby on the input pointing at the title and
+   text ids. The visually hidden radio sits IMMEDIATELY BEFORE the card
+   inside the label, so cards.css can draw the focus ring on the card:
+
+   <div role="radiogroup" aria-labelledby="f-h">
+     <div class="…">                                         (app.css layout)
+       <label for="fate-0">
+         <input type="radio" name="fate" id="fate-0" class="…visually hidden…" aria-labelledby="fate-0-t fate-0-x">
+         <div class="card card--compact is-selected" data-card-type="fate" aria-hidden="true">
+           …frame / band / body (p.card__title#fate-0-t, p.card__text#fate-0-x) / foot…
+         </div>
+       </label>
+       <button class="card__say …">…</button>                (outside the label, A-07)
+     </div>
+     …
+   </div>
+
+   - .is-selected on the picked card (ui.js toggles it with the radio):
+     a 3px accent OUTLINE (not box-shadow, so it survives forced colours).
+     Pair it with the app's "Our pick" chip + ui-check icon: never colour
+     alone.
+   - Once any card in a [role="radiogroup"] or <fieldset> is .is-selected,
+     its other compact cards dim to var(--opacity-dimmed) (0.6, never
+     lower, A-17).
+   - Focus: input:focus-visible + .card--compact gets the two-band A-01
+     ring (outline outer band + box-shadow inner band, Highlight in forced
+     colours). Do not add a second outline on the label.
+   - Sticker: no tilt on compact cards (a tilted card would not line up
+     with its selected outline or its neighbours in a list).
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   1. TYPE MAPPING: colour, pattern and the per-style shape slots
+   -------------------------------------------------------------------------- */
+.card[data-card-type="world"] {
+  --tc: var(--card-world);  --on-tc: var(--on-card-world);
+  --pat: var(--pattern-world);  --pat-ink: var(--pattern-ink-world);
+  --card-window: var(--card-window-world, none);
+  --card-window-aspect: var(--card-window-aspect-world, var(--card-window-aspect-base));
+  --card-window-width: var(--card-window-width-world, 100%);
+  --card-banner: var(--card-banner-world, none);
+  --card-medal: var(--card-medal-world, none);
+  --card-medal-size: var(--collect-medal);
+  --card-clip: var(--card-silhouette-world, none);
+  --card-mask: var(--card-mask-world, none);
+  --card-pad-type: var(--card-pad-world, var(--card-pad));
+  --card-tail: var(--card-tail-world, none);
+}
+.card[data-card-type="quest"] {
+  --tc: var(--card-quest);  --on-tc: var(--on-card-quest);
+  --pat: var(--pattern-quest);  --pat-ink: var(--pattern-ink-quest);
+  --card-window: var(--card-window-quest, none);
+  --card-window-aspect: var(--card-window-aspect-quest, var(--card-window-aspect-base));
+  --card-window-width: var(--card-window-width-quest, 100%);
+  --card-banner: var(--card-banner-quest, none);
+  --card-medal: var(--card-medal-quest, none);
+  --card-medal-size: var(--collect-medal);
+  --card-clip: var(--card-silhouette-quest, none);
+  --card-mask: var(--card-mask-quest, none);
+  --card-pad-type: var(--card-pad-quest, var(--card-pad));
+  --card-tail: var(--card-tail-quest, none);
+}
+.card[data-card-type="prompt"] {
+  --tc: var(--card-prompt);  --on-tc: var(--on-card-prompt);
+  --pat: var(--pattern-prompt);  --pat-ink: var(--pattern-ink-prompt);
+  --card-window: var(--card-window-prompt, none);
+  --card-window-aspect: var(--card-window-aspect-prompt, var(--card-window-aspect-base));
+  --card-window-width: var(--card-window-width-prompt, 100%);
+  --card-banner: var(--card-banner-prompt, none);
+  --card-medal: var(--card-medal-prompt, none);
+  --card-medal-size: var(--collect-medal);
+  --card-clip: var(--card-silhouette-prompt, none);
+  --card-mask: var(--card-mask-prompt, none);
+  --card-pad-type: var(--card-pad-prompt, var(--card-pad));
+  --card-tail: var(--card-tail-prompt, none);
+}
+.card[data-card-type="twist"] {
+  --tc: var(--card-twist);  --on-tc: var(--on-card-twist);
+  --pat: var(--pattern-twist);  --pat-ink: var(--pattern-ink-twist);
+  --card-window: var(--card-window-twist, none);
+  --card-window-aspect: var(--card-window-aspect-twist, var(--card-window-aspect-base));
+  --card-window-width: var(--card-window-width-twist, 100%);
+  --card-banner: var(--card-banner-twist, none);
+  --card-medal: var(--card-medal-twist, none);
+  --card-medal-size: var(--collect-medal-big);
+  --card-clip: var(--card-silhouette-twist, none);
+  --card-mask: var(--card-mask-twist, none);
+  --card-pad-type: var(--card-pad-twist, var(--card-pad));
+  --card-tail: var(--card-tail-twist, none);
+}
+.card[data-card-type="fate"] {
+  --tc: var(--card-fate);  --on-tc: var(--on-card-fate);
+  --pat: var(--pattern-fate);  --pat-ink: var(--pattern-ink-fate);
+  --card-window: var(--card-window-fate, none);
+  --card-window-aspect: var(--card-window-aspect-fate, var(--card-window-aspect-base));
+  --card-window-width: var(--card-window-width-fate, 100%);
+  --card-banner: var(--card-banner-fate, none);
+  --card-medal: var(--card-medal-fate, none);
+  --card-medal-size: var(--collect-medal-big);
+  --card-clip: var(--card-silhouette-fate, none);
+  --card-mask: var(--card-mask-fate, none);
+  --card-pad-type: var(--card-pad-fate, var(--card-pad));
+  --card-tail: var(--card-tail-fate, none);
+}
+
+
+/* --------------------------------------------------------------------------
+   2. BASE CARD (every style)
+   -------------------------------------------------------------------------- */
+.card {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--card-max-w);
+  margin-inline: auto;
+  color: var(--color-card-ink);
+  font-family: var(--font-body);
+  text-align: start;
+}
+.card *,
+.card *::before,
+.card *::after { box-sizing: border-box; }
+
+.card .icon {
+  display: inline-block;
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  vertical-align: middle;
+}
+
+.card__frame {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  aspect-ratio: var(--card-aspect);
+  padding: var(--card-pad-type);
+  border-radius: var(--card-radius);
+  background: var(--card-face);
+  box-shadow: var(--card-shadow);
+}
+
+.card__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.card__symbol {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.card__type {
+  font: var(--fw-display) var(--fs-card-type) / var(--lh-snug) var(--font-display);
+  letter-spacing: var(--ls-card-type);
+}
+
+.card__art { position: relative; }
+.card__art .scene,
+.card__art-icon {
+  display: block;
+  width: var(--card-window-width);
+  margin-inline: auto;
+  aspect-ratio: var(--card-window-aspect);
+  clip-path: var(--card-window);
+}
+.card__art-icon {
+  display: grid;
+  place-items: center;
+  background: var(--sc-sky);
+  color: var(--sc-ink);
+}
+.card__art-icon .icon { width: var(--icon-xl); height: var(--icon-xl); }
+
+.card__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.card__title {
+  margin: 0;
+  font: var(--fw-display) var(--fs-card-title) / var(--lh-tight) var(--font-display);
+}
+.card__text {
+  margin: 0;
+  font: var(--fw-medium) var(--fs-card-text-level) / var(--lh-card-text) var(--font-body);
+}
+.card[data-card-type="prompt"] .card__text {
+  font: var(--fw-display) var(--fs-card-prompt) / var(--lh-tight) var(--font-display);
+}
+
+.card__foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+}
+.card__edge {
+  flex: 1;
+  height: var(--card-edge-h);
+  color: var(--pat-ink);
+  background: var(--pat), var(--tc);
+}
+.card__mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--color-card-ink-muted);
+}
+.card__mark .icon { width: var(--icon-sm); height: var(--icon-sm); }
+
+/* Read-aloud button (turn screen, Twist, Fate): 48px target, two-tone focus */
+.card__say {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  margin-inline-start: auto;
+  padding: 0;
+  border: var(--outline-tools) solid var(--ink-900);
+  border-radius: var(--radius-chip);
+  background: var(--cream-50);
+  color: var(--ink-900);
+  cursor: pointer;
+  font: inherit;
+}
+.card__say:focus-visible {
+  /* outer band = real outline (survives forced colours), inner band = shadow */
+  outline: var(--focus-width) solid var(--color-focus-outer);
+  outline-offset: var(--focus-width);
+  box-shadow: 0 0 0 var(--focus-width) var(--color-focus-inner);
+}
+
+/* Gallery card: the button sits in the frame's top-right corner */
+.card__frame > .card__say {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 3;
+}
+
+/* Turn-screen Prompt, shared part: no art, no foot, no fixed ratio */
+.card--turn { max-width: none; }
+.card--turn .card__frame { aspect-ratio: auto; }
+.card--turn .card__art,
+.card--turn .card__foot { display: none; }
+.card--turn .card__band { min-height: var(--tap-min); }
+.card--turn .card__prompt,
+.card--turn[data-card-type="prompt"] .card__text {
+  max-width: var(--measure-prompt);
+  font: var(--fw-prompt) var(--fs-prompt) / var(--lh-tight) var(--font-display);
+}
+
+/* Neutral Twist picture (2026-10-23): used by every Twist that has no
+   scene drawn for it. Twist pattern on the Twist colour, symbol in a cream
+   disc with an ink keyline. Decorative (inside aria-hidden card__art). */
+.card[data-card-type="twist"] .card__art-icon {
+  color: var(--pat-ink);
+  background: var(--pat), var(--tc);
+}
+.card[data-card-type="twist"] .card__art-icon .icon {
+  box-sizing: content-box;
+  padding: var(--space-3);
+  border-radius: 50%;
+  background: var(--cream-50);
+  color: var(--card-twist);
+  box-shadow: 0 0 0 var(--outline-card) var(--card-keyline-ink);
+}
+
+/* Compact card, shared part: no art, no fixed ratio, full width */
+.card--compact { max-width: none; }
+.card--compact .card__frame { aspect-ratio: auto; }
+.card--compact .card__art { display: none; }
+/* keep the title clear of a corner read-aloud button (story cover) */
+.card--compact .card__frame > .card__say ~ .card__body { padding-inline-end: var(--tap-min); }
+/* Ending choice: picked, dimmed, focused */
+.card--compact.is-selected {
+  outline: var(--outline-btn) solid var(--color-accent);
+  outline-offset: var(--focus-offset);
+}
+:is([role="radiogroup"], fieldset):has(.card--compact.is-selected) .card--compact:not(.is-selected) {
+  opacity: var(--opacity-dimmed);
+}
+:focus-visible + .card--compact {
+  outline: var(--focus-width) solid var(--color-focus-outer);
+  outline-offset: var(--focus-width);
+  box-shadow: 0 0 0 var(--focus-width) var(--color-focus-inner);
+}
+
+
+/* --------------------------------------------------------------------------
+   3. LANTERN STORYBOOK (default: no data-card-style, or "lantern")
+   -------------------------------------------------------------------------- */
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card {
+  padding-top: var(--card-hang);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__frame::before {
+  /* page spine shading on the left edge */
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: var(--card-spine-w);
+  border-radius: var(--card-radius) 0 0 var(--card-radius);
+  background: var(--card-spine);
+  pointer-events: none;
+}
+/* The lantern: hangs above the page and carries the type symbol */
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__band {
+  position: absolute;
+  top: calc(-1 * var(--card-hang));
+  left: 50%;
+  z-index: 2;
+  flex-direction: column;
+  gap: 0;
+  transform: translateX(-50%);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__symbol {
+  position: relative;
+  width: var(--lantern-w);
+  height: var(--lantern-h);
+  border-radius: var(--lantern-radius);
+  background: var(--tc);
+  color: var(--on-tc);
+  box-shadow: 0 0 0 var(--outline-card) var(--lantern-rim), var(--lantern-glow);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__symbol::before {
+  /* lantern cap */
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--lantern-cap-h) - var(--border-hair));
+  left: 50%;
+  width: var(--lantern-cap-w);
+  height: var(--lantern-cap-h);
+  transform: translateX(-50%);
+  border-radius: var(--space-1) var(--space-1) var(--border-hair) var(--border-hair);
+  background: var(--lantern-rim);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__symbol::after {
+  /* string */
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--lantern-cap-h) - var(--lantern-string-h));
+  left: 50%;
+  width: var(--outline-card);
+  height: var(--lantern-string-h);
+  transform: translateX(-50%);
+  background: var(--lantern-string);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__type {
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--tc);
+  color: var(--on-tc);
+  box-shadow: 0 0 0 var(--outline-card) var(--lantern-rim);
+  white-space: nowrap;
+}
+/* Picture window: the type's shape, ink keyline, warm glow */
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__art {
+  margin-block: var(--space-1);
+  filter: drop-shadow(var(--keyline-thin) 0 0 var(--card-keyline-ink))
+          drop-shadow(calc(-1 * var(--keyline-thin)) 0 0 var(--card-keyline-ink))
+          drop-shadow(0 var(--keyline-thin) 0 var(--card-keyline-ink))
+          drop-shadow(0 calc(-1 * var(--keyline-thin)) 0 var(--card-keyline-ink))
+          var(--card-art-glow);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card[data-card-type="prompt"] .card__art::after {
+  /* speech-bubble tail under the Prompt window */
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: var(--card-tail-x);
+  width: var(--card-tail-w);
+  height: var(--card-tail-h);
+  background: var(--sc-sky);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+/* Footer: world mark left, bookmark ribbon right */
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__foot {
+  min-height: var(--space-6);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__edge {
+  position: absolute;
+  top: calc(-1 * var(--space-1));
+  right: 0;
+  flex: none;
+  width: var(--lantern-ribbon-w);
+  height: var(--lantern-ribbon-h);
+  background: none;
+  filter: drop-shadow(var(--border-hair) 0 0 var(--card-keyline-ink))
+          drop-shadow(calc(-1 * var(--border-hair)) 0 0 var(--card-keyline-ink))
+          drop-shadow(0 var(--border-hair) 0 var(--card-keyline-ink));
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__edge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--pat), var(--tc);
+  clip-path: var(--lantern-ribbon-shape);
+}
+/* Turn screen: lantern inline, words in a speech bubble, no picture */
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn { padding-top: 0; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__frame {
+  padding: var(--space-2) var(--space-3) var(--space-4) var(--space-4);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__band {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex-direction: row;
+  gap: var(--space-3);
+  transform: none;
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__symbol {
+  width: var(--lantern-turn-w);
+  height: var(--lantern-turn-h);
+  margin-top: var(--space-2);
+  box-shadow: 0 0 0 var(--outline-card) var(--card-keyline-ink);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__symbol::before { background: var(--card-keyline-ink); }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__symbol::after { display: none; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__type {
+  margin: 0;
+  padding: 0;
+  background: none;
+  color: var(--color-card-ink);
+  box-shadow: none;
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__body {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--card-turn-bubble-radius);
+  background: var(--card-turn-bubble);
+  box-shadow: 0 0 0 var(--outline-card) var(--card-keyline-ink);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__body::after {
+  /* bubble tail: ink triangle with a paper triangle inside */
+  content: "";
+  position: absolute;
+  bottom: calc(-1 * var(--space-4));
+  left: var(--space-6);
+  width: var(--space-5);
+  height: var(--space-4);
+  background: var(--card-keyline-ink);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--turn .card__body::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  bottom: calc(-1 * var(--space-3));
+  left: calc(var(--space-6) + var(--outline-card));
+  width: calc(var(--space-5) - var(--space-2));
+  height: var(--space-3);
+  background: var(--card-turn-bubble);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+/* Compact: lantern inline beside its coloured word chip, ribbon kept but
+   shorter so it stays inside the page (and inside the selected outline) */
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--compact { padding-top: 0; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--compact .card__frame {
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--compact .card__band {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex-direction: row;
+  gap: var(--space-3);
+  align-self: flex-start;
+  transform: none;
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--compact .card__symbol {
+  width: var(--lantern-turn-w);
+  height: var(--lantern-turn-h);
+  margin-top: var(--space-2);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--compact .card__symbol::after { display: none; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--compact .card__type { margin-top: 0; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card--compact .card__edge {
+  top: calc(-1 * var(--space-2));
+  height: var(--space-7);
+}
+
+
+/* --------------------------------------------------------------------------
+   4. COLLECTIBLE CARD GAME
+   -------------------------------------------------------------------------- */
+:where([data-card-style="collectible"]) .card__frame::before {
+  /* type-colour frame with the edge pattern, inside the foil rim */
+  content: "";
+  position: absolute;
+  inset: var(--card-frame-width);
+  z-index: -1;
+  border-radius: calc(var(--card-radius) - var(--card-frame-width));
+  color: var(--pat-ink);
+  background: var(--pat), var(--tc);
+}
+:where([data-card-style="collectible"]) .card__frame::after {
+  /* foil sheen (decorative, under the panels) */
+  content: "";
+  position: absolute;
+  inset: var(--card-frame-width);
+  z-index: -1;
+  border-radius: calc(var(--card-radius) - var(--card-frame-width));
+  background: var(--card-sheen);
+  pointer-events: none;
+}
+/* Banner: shaped foil band with an ink keyline, centred on the top frame */
+:where([data-card-style="collectible"]) .card__band {
+  position: absolute;
+  top: var(--collect-band-top);
+  left: 50%;
+  z-index: 2;
+  height: var(--collect-band-h);
+  padding: 0 var(--space-6);
+  transform: translateX(-50%);
+  color: var(--ink-900);
+  white-space: nowrap;
+  isolation: isolate;
+  filter: drop-shadow(var(--keyline-thin) 0 0 var(--card-keyline-ink))
+          drop-shadow(calc(-1 * var(--keyline-thin)) 0 0 var(--card-keyline-ink))
+          drop-shadow(0 var(--keyline-thin) 0 var(--card-keyline-ink))
+          drop-shadow(0 calc(-1 * var(--keyline-thin)) 0 var(--card-keyline-ink));
+}
+:where([data-card-style="collectible"]) .card__band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--collect-band-face);
+  clip-path: var(--card-banner);
+}
+:where([data-card-style="collectible"]) .card__symbol .icon { width: var(--icon-sm); height: var(--icon-sm); }
+/* Art window and text panel: cream/foil ring + ink keyline */
+:where([data-card-style="collectible"]) .card__art,
+:where([data-card-style="collectible"]) .card__body {
+  border-radius: var(--collect-panel-radius);
+  box-shadow: 0 0 0 var(--collect-panel-ring) var(--card-metal),
+              0 0 0 calc(var(--collect-panel-ring) + var(--keyline-thin)) var(--card-keyline-ink);
+}
+:where([data-card-style="collectible"]) .card__art { overflow: hidden; }
+:where([data-card-style="collectible"]) .card__body {
+  flex: 1;
+  padding: var(--space-3) var(--space-3) var(--space-8);
+  background: var(--collect-inner);
+}
+/* Corner medallion: the type's shape, foil ring + ink keyline */
+:where([data-card-style="collectible"]) .card__foot {
+  position: absolute;
+  right: calc(var(--card-frame-width) + var(--collect-frame-width) + var(--space-2));
+  bottom: calc(var(--card-frame-width) + var(--collect-frame-width) + var(--space-2));
+  z-index: 3;
+  margin: 0;
+}
+:where([data-card-style="collectible"]) .card__edge { display: none; }
+:where([data-card-style="collectible"]) .card__mark {
+  position: relative;
+  isolation: isolate;
+  width: var(--card-medal-size);
+  height: var(--card-medal-size);
+  color: var(--on-tc);
+  filter: drop-shadow(var(--collect-medal-ring) 0 0 var(--card-metal))
+          drop-shadow(calc(-1 * var(--collect-medal-ring)) 0 0 var(--card-metal))
+          drop-shadow(0 var(--collect-medal-ring) 0 var(--card-metal))
+          drop-shadow(0 calc(-1 * var(--collect-medal-ring)) 0 var(--card-metal))
+          drop-shadow(var(--keyline-thin) 0 0 var(--card-keyline-ink))
+          drop-shadow(calc(-1 * var(--keyline-thin)) 0 0 var(--card-keyline-ink))
+          drop-shadow(0 var(--keyline-thin) 0 var(--card-keyline-ink))
+          drop-shadow(0 calc(-1 * var(--keyline-thin)) 0 var(--card-keyline-ink));
+}
+:where([data-card-style="collectible"]) .card__mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--tc);
+  clip-path: var(--card-medal);
+}
+/* Turn screen: same frame, banner inline, no art, no sheen, no medallion */
+:where([data-card-style="collectible"]) .card--turn .card__frame {
+  padding: calc(var(--card-frame-width) + var(--space-2));
+}
+:where([data-card-style="collectible"]) .card--turn .card__frame::after { display: none; }
+:where([data-card-style="collectible"]) .card--turn .card__band {
+  position: relative;
+  top: auto;
+  left: auto;
+  align-self: stretch;
+  height: auto;
+  padding: 0 var(--space-2) 0 var(--space-5);
+  transform: none;
+}
+:where([data-card-style="collectible"]) .card--turn .card__body { padding: var(--space-3) var(--space-4); }
+/* Compact: same frame, banner and medallion as the gallery card; only the
+   art window goes and the text panel grows to its content */
+:where([data-card-style="collectible"]) .card--compact .card__body {
+  flex: none;
+  padding-bottom: calc(var(--card-medal-size) + var(--space-3));   /* clear the corner medallion */
+}
+
+
+/* --------------------------------------------------------------------------
+   5. TOY BOX STICKER BOOK
+   -------------------------------------------------------------------------- */
+:where([data-card-style="sticker"]) .card {
+  /* ring + white backing + lift follow the silhouette (union of face + tail) */
+  rotate: var(--card-tilt);
+  filter: var(--sticker-diecut);
+  --sticker-diecut: drop-shadow(var(--sticker-ring-w) 0 0 var(--sticker-ring-color, var(--tc)))
+          drop-shadow(calc(-1 * var(--sticker-ring-w)) 0 0 var(--sticker-ring-color, var(--tc)))
+          drop-shadow(0 var(--sticker-ring-w) 0 var(--sticker-ring-color, var(--tc)))
+          drop-shadow(0 calc(-1 * var(--sticker-ring-w)) 0 var(--sticker-ring-color, var(--tc)))
+          drop-shadow(var(--sticker-back-w) 0 0 var(--sticker-back))
+          drop-shadow(calc(-1 * var(--sticker-back-w)) 0 0 var(--sticker-back))
+          drop-shadow(0 var(--sticker-back-w) 0 var(--sticker-back))
+          drop-shadow(0 calc(-1 * var(--sticker-back-w)) 0 var(--sticker-back))
+          drop-shadow(var(--sticker-lift));
+}
+:where([data-card-style="sticker"]) .card.card--tilt-left { rotate: calc(-1 * var(--card-tilt)); }
+:where([data-card-style="sticker"]) .card[data-card-type="prompt"]:not(.card--turn) {
+  margin-bottom: var(--card-tail-h);
+}
+:where([data-card-style="sticker"]) .card::after {
+  /* speech tail (Prompt only: --card-tail-prompt: block) */
+  content: "";
+  display: var(--card-tail);
+  position: absolute;
+  bottom: calc(-1 * var(--card-tail-h) + var(--border-hair));
+  left: var(--card-tail-x);
+  width: var(--card-tail-w);
+  height: var(--card-tail-h);
+  background: var(--card-face);
+  clip-path: polygon(0 0, 100% 0, 8% 100%);
+}
+:where([data-card-style="sticker"]) .card__frame {
+  /* The silhouette is drawn by decorative pseudo-elements, NOT by clipping
+     the frame, so focus rings of controls inside the card are never
+     clipped (accessibility pass A-28). Padding keeps content inside. */
+  background: none;
+}
+:where([data-card-style="sticker"]) .card__frame::before,
+:where([data-card-style="sticker"]) .card__frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  clip-path: var(--card-clip);
+  mask: var(--card-mask);
+  -webkit-mask: var(--card-mask);
+  pointer-events: none;
+}
+:where([data-card-style="sticker"]) .card__frame::before { background: var(--card-face); }
+:where([data-card-style="sticker"]) .card__frame::after {
+  /* Tale Weaver stitch (--card-stitch: dashed); none on Sprout */
+  outline: var(--sticker-stitch-w) var(--card-stitch) var(--sticker-stitch-ink);
+  outline-offset: var(--sticker-stitch-offset);
+}
+/* Label sticker: tilted pill with the type colour and an ink ring */
+:where([data-card-style="sticker"]) .card__band {
+  align-self: center;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  border-radius: var(--radius-chip);
+  background: var(--tc);
+  color: var(--on-tc);
+  box-shadow: 0 0 0 var(--sticker-label-ring) var(--card-keyline-ink);
+  rotate: var(--card-label-tilt);
+}
+:where([data-card-style="sticker"]) .card__type { font-weight: var(--fw-heavy); }
+:where([data-card-style="sticker"]) .card__art {
+  overflow: hidden;
+  border: var(--sticker-label-ring) solid var(--card-keyline-ink);
+  border-radius: var(--sticker-art-radius);
+}
+:where([data-card-style="sticker"]) .card__title { font-weight: var(--fw-heavy); }
+:where([data-card-style="sticker"]) .card__edge {
+  height: var(--card-edge-h);
+  border-radius: var(--radius-chip);
+  box-shadow: 0 0 0 var(--outline-card) var(--card-keyline-ink);
+}
+:where([data-card-style="sticker"]) .card__mark {
+  width: var(--sticker-mark);
+  height: var(--sticker-mark);
+  border: var(--sticker-label-ring) solid var(--card-keyline-ink);
+  border-radius: var(--radius-chip);
+  background: var(--card-sticker-mark);
+  color: var(--ink-900);
+  rotate: var(--sticker-mark-tilt);
+}
+/* Turn screen: no tilt, no die-cut filter stack (cheap on low-power
+   phones), ring + backing as box-shadows on a bubble-shaped face */
+:where([data-card-style="sticker"]) .card--turn {
+  rotate: none;
+  filter: none;
+  margin: calc(var(--sticker-ring-w) + var(--sticker-back-w));
+}
+:where([data-card-style="sticker"]) .card--turn::after { display: none; }
+:where([data-card-style="sticker"]) .card--turn .card__frame::before,
+:where([data-card-style="sticker"]) .card--turn .card__frame::after { display: none; }
+:where([data-card-style="sticker"]) .card--turn .card__frame {
+  background: var(--card-face);
+  padding: var(--space-2) var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--card-turn-bubble-radius);
+  box-shadow: 0 0 0 var(--sticker-ring-w) var(--sticker-ring-color, var(--tc)),
+              0 0 0 calc(var(--sticker-ring-w) + var(--sticker-back-w)) var(--sticker-back),
+              var(--sticker-lift);
+}
+:where([data-card-style="sticker"]) .card--turn .card__band {
+  align-self: stretch;
+  padding: 0;
+  background: none;
+  color: var(--color-card-ink);
+  box-shadow: none;
+  rotate: none;
+}
+:where([data-card-style="sticker"]) .card--turn .card__symbol {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-chip);
+  background: var(--tc);
+  color: var(--on-tc);
+  box-shadow: 0 0 0 var(--sticker-label-ring) var(--card-keyline-ink);
+}
+/* Compact: silhouette, label and pattern strip kept; no tilt. The die-cut
+   filter moves from the card to the frame, so the selected / focus
+   outline on the card is not itself die-cut (it would turn the ring into
+   a rectangle). Outline clears ring + backing. */
+:where([data-card-style="sticker"]) .card--compact {
+  rotate: none;
+  filter: none;
+  margin: calc(var(--sticker-ring-w) + var(--sticker-back-w));
+}
+:where([data-card-style="sticker"]) .card--compact .card__frame { filter: var(--sticker-diecut); }
+:where([data-card-style="sticker"]) .card--compact.is-selected,
+:where([data-card-style="sticker"]) :focus-visible + .card--compact {
+  outline-offset: calc(var(--sticker-ring-w) + var(--sticker-back-w) + var(--focus-offset));
+}
+
+
+/* --------------------------------------------------------------------------
+   5b. FORCED COLOURS (Windows High Contrast). Box-shadows, gradients and
+   patterns are removed by the browser, so card edges, rings and the focus
+   ring are redrawn with border / outline in system colours (accessibility
+   pass A-01, A-12, A-13). Not yet verified in this style set (see record).
+   -------------------------------------------------------------------------- */
+@media (forced-colors: active) {
+  .card__frame { border: var(--outline-card) solid var(--system-ink); }
+  :where([data-card-style="sticker"]) .card__frame::before { border: var(--outline-card) solid var(--system-ink); }
+  .card__band,
+  .card__symbol,
+  .card__art,
+  .card__body,
+  .card__edge,
+  .card__mark { border: var(--border-hair) solid var(--system-ink); }
+  .card .icon { color: var(--system-ink); }
+  .card__say { border-color: var(--system-button-ink); }
+  .card__say .icon { color: var(--system-button-ink); }
+  .card__say:focus-visible { outline-color: var(--system-focus); box-shadow: none; }
+  .card--compact.is-selected,
+  :focus-visible + .card--compact { outline-color: var(--system-focus); box-shadow: none; }
+}
+
+
+/* --------------------------------------------------------------------------
+   6. SCENE ART (inline SVG, painted by the --sc-* tokens of the style)
+   Decorative only (aria-hidden), never behind text.
+   -------------------------------------------------------------------------- */
+.scene .s-sky { fill: var(--sc-sky); }
+.scene .s-sun, .scene .s-bell { fill: var(--sc-sun); }
+.scene .s-cloud { fill: var(--sc-cloud); }
+.scene .s-ground { fill: var(--sc-ground); }
+.scene .s-tree { fill: var(--sc-tree); }
+.scene .s-wall, .scene .s-room { fill: var(--sc-wall); }
+.scene .s-roof { fill: var(--sc-roof); }
+.scene .s-win { fill: var(--sc-win); }
+.scene .s-door { fill: var(--sc-door); }
+.scene .s-path { fill: var(--sc-path); }
+.scene .s-ring1 { fill: var(--sc-ring1); }
+.scene .s-ring2 { fill: var(--sc-ring2); }
+.scene .s-bus { fill: var(--sc-bus); }
+.scene .s-wheel, .scene .s-inkf { fill: var(--sc-inkf); }
+.scene .s-fur { fill: var(--sc-fur); }
+.scene .s-pink, .scene .s-cheek { fill: var(--sc-pink); }
+.scene .s-cheek { opacity: 0.5; }
+.scene .s-belly { fill: var(--sc-belly); }
+.scene .s-white { fill: var(--white); }
+.scene .s-bubble { fill: var(--sc-bubble); }
+.scene .s-acc { fill: var(--tc); }
+.scene .s-star { fill: var(--sc-star); }
+.scene .s-pot { fill: var(--sc-pot); }
+.scene .s-rays { fill: var(--sc-rays); }
+.scene .s-flag1 { fill: var(--sc-flag1); }
+.scene .s-flag2 { fill: var(--sc-flag2); }
+.scene .s-paper { fill: var(--sc-paper); }
+.scene .s-coast { fill: var(--sc-coast); }
+.scene .s-grid { fill: none; stroke: var(--sc-grid); stroke-width: var(--border-hair); }
+.scene .s-ln {
+  fill: none;
+  stroke: var(--sc-ink);
+  stroke-width: var(--sc-line-w);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.scene .dash { stroke-dasharray: 4 6; }
+.scene .o { stroke: var(--sc-ink); stroke-width: var(--sc-outline-w); stroke-linejoin: round; }
+.scene .s-swirl {
+  fill: none;
+  stroke: var(--tc);
+  stroke-width: var(--sc-line-w);
+  stroke-dasharray: 1 7;
+  stroke-linecap: round;
+}
+.scene .s-compass circle { fill: var(--sc-paper); }
+.scene .s-compass path:not(.s-ln) { fill: var(--tc); }
+
+
+/* --------------------------------------------------------------------------
+   7. PRINT / LINE ART (class="print" or @media print)
+   Colours are remapped in tokens.css section 6; these rules turn the scene
+   into outlines and fit the card to 63 x 88 mm. KEEP BOTH BLOCKS IDENTICAL.
+   -------------------------------------------------------------------------- */
+.print .card:not(.card--turn, .card--compact) {
+  width: var(--print-card-w);
+  max-width: none;
+  height: var(--print-card-h);
+  margin: 0;
+  padding: var(--print-safe);
+  rotate: none;
+  break-inside: avoid;
+}
+.print .card__frame { height: 100%; aspect-ratio: auto; gap: var(--space-1); }
+.print .card--compact .card__frame { height: auto; }
+.print .card__art .scene,
+.print .card__art-icon { height: var(--print-art-h-level); aspect-ratio: auto; }
+.print .scene :is(rect, circle, ellipse, path, polygon),
+.print .scene .s-acc * {
+  fill: var(--print-paper);
+  stroke: var(--print-ink);
+  stroke-width: var(--print-scene-line);
+}
+.print .scene :is(.s-sky, .s-paper) { stroke: none; }
+.print .scene :is(.s-inkf, .s-wheel) { fill: var(--print-ink); }
+.print .scene :is(.s-grid, .s-ln, .s-swirl) { fill: none; }
+.print .scene .s-cheek { opacity: 1; }
+.print .card__art-icon { background: var(--print-paper); color: var(--print-ink); }
+.print .card[data-card-type="twist"] .card__art-icon { background: var(--print-paper); }
+.print .card[data-card-type="twist"] .card__art-icon .icon { background: var(--print-paper); color: var(--print-ink); box-shadow: 0 0 0 var(--print-line) var(--print-ink); }
+.print .card__say { display: none; }
+/* Lantern: the lantern moves inside the page so the card fits the cut */
+.print :where(.card) .card__band { position: relative; top: auto; left: auto; transform: none; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .print .card__band,
+.print:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__band {
+  flex-direction: row;
+  gap: var(--space-2);
+  align-self: center;
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .print .card__symbol,
+.print:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__symbol {
+  width: var(--lantern-turn-w);
+  height: var(--lantern-turn-h);
+  margin-top: var(--space-2);
+}
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .print .card__symbol::after,
+.print:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__symbol::after { display: none; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .print .card__type,
+.print:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__type { margin-top: 0; }
+:where(:root:not([data-card-style]), [data-card-style="lantern"]) .print .card__edge,
+.print:where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__edge { top: calc(-1 * var(--space-2)); height: var(--space-7); }
+/* Collectible: banner stays on the frame, a little thinner */
+:where([data-card-style="collectible"]) .print .card__band,
+.print:where([data-card-style="collectible"]) .card__band {
+  position: absolute;
+  top: var(--space-2);
+  left: 50%;
+  transform: translateX(-50%);
+}
+:where([data-card-style="collectible"]) .print .card__frame,
+.print:where([data-card-style="collectible"]) .card__frame { padding-top: var(--space-7); }
+:where([data-card-style="collectible"]) .print .card__body,
+.print:where([data-card-style="collectible"]) .card__body { padding-bottom: var(--space-7); }
+
+@media print {
+  .card:not(.card--turn, .card--compact) {
+    width: var(--print-card-w);
+    max-width: none;
+    height: var(--print-card-h);
+    margin: 0;
+    padding: var(--print-safe);
+    rotate: none;
+    break-inside: avoid;
+  }
+  .card__frame { height: 100%; aspect-ratio: auto; gap: var(--space-1); }
+  .card--compact .card__frame { height: auto; }
+  .card__art .scene,
+  .card__art-icon { height: var(--print-art-h-level); aspect-ratio: auto; }
+  .scene :is(rect, circle, ellipse, path, polygon),
+  .scene .s-acc * {
+    fill: var(--print-paper);
+    stroke: var(--print-ink);
+    stroke-width: var(--print-scene-line);
+  }
+  .scene :is(.s-sky, .s-paper) { stroke: none; }
+  .scene :is(.s-inkf, .s-wheel) { fill: var(--print-ink); }
+  .scene :is(.s-grid, .s-ln, .s-swirl) { fill: none; }
+  .scene .s-cheek { opacity: 1; }
+  .card__art-icon { background: var(--print-paper); color: var(--print-ink); }
+  .card[data-card-type="twist"] .card__art-icon { background: var(--print-paper); }
+  .card[data-card-type="twist"] .card__art-icon .icon { background: var(--print-paper); color: var(--print-ink); box-shadow: 0 0 0 var(--print-line) var(--print-ink); }
+  .card__say { display: none; }
+  .card .card__band { position: relative; top: auto; left: auto; transform: none; }
+  :where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__band {
+    flex-direction: row;
+    gap: var(--space-2);
+    align-self: center;
+  }
+  :where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__symbol {
+    width: var(--lantern-turn-w);
+    height: var(--lantern-turn-h);
+    margin-top: var(--space-2);
+  }
+  :where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__symbol::after { display: none; }
+  :where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__type { margin-top: 0; }
+  :where(:root:not([data-card-style]), [data-card-style="lantern"]) .card__edge { top: calc(-1 * var(--space-2)); height: var(--space-7); }
+  :where([data-card-style="collectible"]) .card .card__band {
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  :where([data-card-style="collectible"]) .card .card__frame { padding-top: var(--space-7); }
+  :where([data-card-style="collectible"]) .card .card__body { padding-bottom: var(--space-7); }
+}
